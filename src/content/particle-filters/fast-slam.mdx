@@ -1,0 +1,12 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/2_particle_filters/3_fast_slam.ipynb</code>.
+</Callout>
+
+## FastSLAM
+
+FastSLAM factors the SLAM posterior into a particle filter over trajectories and a set
+of **independent EKFs** over each landmark, conditioned on the trajectory. This avoids
+the $O(N^2)$ covariance of EKF-SLAM.

@@ -1,0 +1,17 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/3_graph_based/1_least_squares.ipynb</code>.
+</Callout>
+
+## Nonlinear Least Squares
+
+Modern SLAM back-ends frame the problem as minimizing a sum of squared residuals:
+
+$$
+x^\star = \arg\min_x \sum_i \lVert e_i(x) \rVert^2_{\Omega_i}.
+$$
+
+We’ll cover Gauss–Newton, Levenberg–Marquardt, and the structure of the normal equations
+$H \Delta x = -b$.

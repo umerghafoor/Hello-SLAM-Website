@@ -1,0 +1,138 @@
+@import 'katex/dist/katex.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b0d10;
+  --bg-elev: #12161b;
+  --bg-soft: #171c22;
+  --border: #232a32;
+  --text: #e6edf3;
+  --text-muted: #9aa7b4;
+  --text-faint: #6b7785;
+  --accent: #a4d4a3;
+  --accent-2: #ffa500;
+  --link: #7ab8ff;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  a {
+    @apply text-[var(--link)] underline-offset-2 hover:underline;
+  }
+  code:not(pre code) {
+    @apply rounded bg-[var(--bg-soft)] px-1.5 py-0.5 text-[0.9em] text-[#f7c177];
+    border: 1px solid var(--border);
+  }
+}
+
+/* --- Prose styling for MDX content --- */
+.prose-slam {
+  @apply text-[15.5px] leading-7;
+  color: var(--text);
+}
+
+.prose-slam h1 {
+  @apply mt-2 mb-6 text-3xl font-semibold tracking-tight;
+  color: #fff;
+}
+.prose-slam h2 {
+  @apply mt-10 mb-3 text-2xl font-semibold tracking-tight;
+  color: var(--accent);
+}
+.prose-slam h3 {
+  @apply mt-8 mb-2 text-xl font-semibold;
+  color: var(--accent);
+}
+.prose-slam h4 {
+  @apply mt-6 mb-2 text-lg font-semibold;
+  color: var(--accent);
+}
+.prose-slam p {
+  @apply my-4;
+}
+.prose-slam ul {
+  @apply my-4 list-disc pl-6;
+}
+.prose-slam ol {
+  @apply my-4 list-decimal pl-6;
+}
+.prose-slam li {
+  @apply my-1;
+}
+.prose-slam li > p {
+  @apply my-1;
+}
+.prose-slam strong {
+  color: var(--accent-2);
+  font-weight: 600;
+}
+.prose-slam blockquote {
+  @apply my-6 border-l-2 pl-4 italic;
+  border-color: var(--accent);
+  color: var(--text-muted);
+}
+.prose-slam hr {
+  @apply my-10 border-0 border-t;
+  border-color: var(--border);
+}
+.prose-slam table {
+  @apply my-6 w-full border-collapse text-sm;
+}
+.prose-slam th,
+.prose-slam td {
+  @apply border px-3 py-2 text-left;
+  border-color: var(--border);
+}
+.prose-slam th {
+  background: var(--bg-soft);
+}
+
+/* code blocks (rehype-pretty-code) */
+.prose-slam figure[data-rehype-pretty-code-figure] {
+  @apply my-6 overflow-hidden rounded-lg;
+  border: 1px solid var(--border);
+  background: #0d1117;
+}
+.prose-slam figure[data-rehype-pretty-code-figure] pre {
+  @apply overflow-x-auto p-4 text-[13.5px] leading-6;
+}
+.prose-slam figure[data-rehype-pretty-code-figure] code {
+  @apply grid;
+  background: transparent !important;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  counter-reset: line;
+}
+.prose-slam code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1.75rem;
+  margin-right: 1rem;
+  text-align: right;
+  color: var(--text-faint);
+}
+.prose-slam [data-rehype-pretty-code-title] {
+  @apply border-b px-4 py-2 text-xs text-[var(--text-muted)];
+  border-color: var(--border);
+  background: var(--bg-soft);
+}
+
+/* KaTeX tweaks for dark bg */
+.katex-display {
+  @apply my-6 overflow-x-auto overflow-y-hidden;
+}
+.katex {
+  color: var(--text);
+}

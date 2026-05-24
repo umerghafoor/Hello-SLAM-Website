@@ -1,0 +1,12 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/3_graph_based/2_least_squares_slam.ipynb</code>.
+</Callout>
+
+## Least-Squares SLAM
+
+A **pose graph** turns every odometry reading and loop closure into a constraint between
+two poses. We then solve for the configuration of poses that minimizes the total
+weighted residual — and the information matrix turns out to be beautifully **sparse**.

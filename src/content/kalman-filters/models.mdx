@@ -1,0 +1,16 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/1_kalman_filters/2_models.ipynb</code>.
+</Callout>
+
+## Motion & Sensor Models
+
+A filter needs two probabilistic models:
+
+- a **motion model** $p(x_t \mid x_{t-1}, u_t)$ that says where the robot likely ended up after a control,
+- a **sensor model** $p(z_t \mid x_t)$ that says how likely a measurement is from a given state.
+
+We’ll look at the **odometry** and **velocity** motion models, and the **range-bearing**
+sensor model used by most landmark-based SLAM systems.

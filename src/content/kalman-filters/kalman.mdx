@@ -1,0 +1,19 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/1_kalman_filters/3_kalman_filters.ipynb</code>.
+</Callout>
+
+## Kalman & Extended Kalman Filters
+
+When the belief is Gaussian and the motion / sensor models are linear, the Bayes filter
+collapses into closed-form updates on a mean $\mu$ and covariance $\Sigma$ — the **Kalman
+filter**.
+
+For nonlinear systems we linearize via Jacobians at the current estimate, giving the
+**Extended Kalman Filter (EKF)**:
+
+$$
+\bar\mu_t = g(u_t, \mu_{t-1}), \qquad \bar\Sigma_t = G_t \Sigma_{t-1} G_t^\top + R_t.
+$$

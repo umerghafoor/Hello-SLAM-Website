@@ -1,0 +1,21 @@
+import { Callout } from '@/components/Callout';
+
+<Callout variant="todo">
+  Full lesson body coming soon — ported from
+  <code> notebooks/1_kalman_filters/1_bayes.ipynb</code>.
+</Callout>
+
+## Recursive Bayes Filter
+
+The Recursive Bayes Filter is the probabilistic foundation under both the Kalman and
+particle filters. It maintains a **belief** over the state $x_t$ given all measurements
+and controls up to time $t$:
+
+$$
+\mathrm{bel}(x_t) \;=\; p(x_t \mid z_{1:t},\, u_{1:t}).
+$$
+
+We update this belief in two steps each tick:
+
+1. **Prediction** — push the belief forward with the motion model.
+2. **Correction** — reweight by the likelihood of the new measurement.

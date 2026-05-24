@@ -1,13 +1,301 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Timeline } from '@/components/Timeline';
 
-<Callout variant="todo" title="Content in progress">
-  This lesson is part of the base scaffold. The full notebook will be ported into this
-  page next — text, math, code, figures, and all.
+<Callout variant="tip" title="Source">
+  This lesson is a faithful port of
+  [`notebooks/0_introduction/0_intro.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/0_introduction/0_intro.ipynb)
+  from the original [hello-slam](https://github.com/nstathou/hello-slam)
+  course by **Nikolaos Stathoulopoulos**.
 </Callout>
+
+In this lesson we give a **short overview** of **Simultaneous Localization and Mapping (SLAM)** — **what it is**, **why we need it**, and **how it works** at a high level. We will also outline the **main components**, the **approaches we'll study**, some **helpful prerequisites**, and provide **suggested readings**.
 
 ## What is SLAM?
 
-**SLAM** is the problem of estimating a robot’s **pose** and a **map** of its environment
-*at the same time*, using only the robot’s own sensors and a record of its own motion.
+SLAM is the problem of estimating a robot's **pose** and a **map** of the environment **at the same time**. Formally, given controls $u_{1:T}$ and observations $z_{1:T}$, SLAM estimates the joint posterior:
 
-The source notebook for this lesson is `notebooks/0_introduction/0_intro.ipynb`.
+$$
+p(x_{1:T},\, m \mid z_{1:T},\, u_{1:T})
+$$
+
+where $x_{1:T}$ are the robot poses and $m$ is the map.
+
+It is often described as a **chicken-and-egg problem**:
+
+- **Localization:** estimating the robot's **position** and **orientation** (pose).
+- **Mapping:** building a **consistent representation** of the world.
+- **SLAM:** solving both **simultaneously**, where each depends on the other.
+
+This coupling makes SLAM challenging:
+
+- A map helps localization, but
+- **good localization** is required to build a **good map**.
+
+**Typical assumptions:**
+
+- **Static world** during mapping.
+- **Markovian** process/measurement models.
+- **Conditional independence** structure.
+
+## Why SLAM?
+
+SLAM is a fundamental capability for **autonomous robotics**:
+
+- Enables operation in **unknown** and infrastructure-free environments.
+- Underpins most **navigation** and exploration systems.
+- Critical for autonomous driving, search and rescue, inspection, warehouses, planetary exploration, and more.
+
+## How does SLAM work?
+
+SLAM combines **sensor data** with **probabilistic estimation** to track both the robot's poses and the state of the map.
+
+**Common sensors:**
+
+- **Visual SLAM (vSLAM):** monocular, stereo or RGB-D cameras that extract and **track image features** (lines, edges, etc.) or directly align intensity/depth; great when there are distinct visual cues.
+- **Range-based SLAM:** 2D/3D LiDAR, radar, sonar producing sparse or dense point clouds; robust to lighting and often more geometrically accurate; primarily **scan matching**.
+- **Multi-modal fusion:** fuses IMU, wheel odometry, GPS (if available), LiDAR or vision to increase robustness and reduce drift (e.g., LiDAR-Visual–Inertial odometry).
+
+**Two main components:**
+
+- **Front-end:** acquires raw sensor data, extracts key features, and performs **data association**. It converts measurements into an **intermediate representation** — landmark observations or relative-pose constraints — that can be fed to the estimator.
+- **Back-end:** performs **estimation** and **optimization** over those inputs to produce a consistent robot trajectory and map. It solves the underlying state-estimation / optimization problem to **refine poses and landmarks**.
+
+Both front-end and back-end operate in a **loop**, continuously updating the map and robot pose in real time.
+
+## Main SLAM approaches
+
+- **Kalman Filter family (EKF / UKF):** recursive **prediction + correction** using Gaussian models. EKF-SLAM was the first practical SLAM algorithm.
+- **Particle filters (FastSLAM):** represent uncertainty with **samples (particles)**. Particle filtering uses a set of particles to represent the posterior distribution of a stochastic process given the noisy and/or partial observations.
+- **Least squares (graph-based):** model SLAM as a **graph optimization** problem — nodes are robot poses and landmarks, edges are constraints (odometry, observations) — and optimize to find the most consistent solution that minimizes an objective function.
+
+## SLAM timeline
+
+A condensed history of the field. Click any era to expand its references.
+
+<Timeline
+  entries={[
+    {
+      period: '1985–1990',
+      headline: 'Probabilistic foundations; mapping + localization as one estimation problem.',
+      body: (
+        <>
+          Treat mapping and localization jointly, with correlations between landmarks and pose as
+          the essential structure. The estimation structure is recognized — though the term "SLAM"
+          has not yet been coined. Genesis commonly traced to conversations and papers around the
+          1986 IEEE ICRA.
+        </>
+      ),
+      references: [
+        'R. Chatila and J.P. Laumond, "Position referencing and consistent world modeling for mobile robots," in Proc. IEEE Int. Conf. Robot. Automat., 1985, pp. 138–143.',
+        'R. Smith and P. Cheesman, "On the representation of spatial uncertainty," International Journal of Robotic Research, vol. 5, no. 4, pp. 56–68, 1987.',
+        'H. Durrant-Whyte, "Uncertain geometry in robotics," IEEE Trans. Robot. Automat., vol. 4, no. 1, pp. 23–31, 1988.',
+        'N. Ayache and O. Faugeras, "Building, registrating, and fusing noisy visual maps," Int. J. Robot. Res., vol. 7, no. 6, pp. 45–65, 1988.',
+        'J. Crowley, "World modeling and position estimation for a mobile robot using ultra-sonic ranging," in Proc. IEEE Int. Conf. Robot. Automat., 1989, pp. 674–681.',
+        'R. Smith, M. Self, and P. Cheeseman, "Estimating uncertain spatial relationships in robotics," in Autonomous Robot Vehicles, I.J. Cox and G.T. Wilfon, Eds. New York: Springer-Verlag, pp. 167–193, 1990.',
+        'H. Durrant-Whyte and T. Bailey, "Simultaneous localization and mapping: part I," in IEEE Robotics & Automation Magazine, vol. 13, no. 2, pp. 99–110, June 2006.',
+      ],
+    },
+    {
+      period: '1991–1995',
+      headline: 'Convergence results; the name "SLAM"; early implementations.',
+      body: (
+        <>
+          Proofs and arguments that the joint estimation problem is convergent and that growing
+          correlations are useful; the acronym <em>SLAM</em> appears in mid-1990s surveys; early
+          EKF-based implementations across indoor, outdoor, and underwater domains.
+        </>
+      ),
+      references: [
+        'J. Leonard and H.F. Durrant-Whyte, "Simultaneous map building and localisation for an autonomous mobile robot," in Proc. IEEE Int. Workshop Intell. Robots Syst. (IROS), Osaka, 1991, pp. 1442–1447.',
+        'J.J. Leonard and H.F. Durrant-Whyte, Directed Sonar Navigation. Norwell, MA: Kluwer, 1992.',
+        'W.D. Renken, "Concurrent localization and map building for mobile robots using ultrasonic sensors," in Proc. IROS, 1993.',
+        'H. Durrant-Whyte, D. Rye, and E. Nebot, "Localisation of automatic guided vehicles," in Robotics Research: The 7th International Symposium (ISRR\'95), Springer, pp. 613–625, 1996.',
+      ],
+    },
+    {
+      period: '1996–2000',
+      headline: 'EKF-SLAM becomes the default; data association emerges as a central issue.',
+      body: (
+        <>
+          EKF-SLAM matures and the community confronts computational complexity (quadratic scaling
+          in map size), nonlinearity, and data association as key roadblocks; occupancy mapping
+          develops in parallel for dense maps.
+        </>
+      ),
+      references: [
+        'M. Csorba and H.F. Durrant-Whyte, "A new approach to simultaneous localisation and map building," in Proc. SPIE Aerosense, Orlando, 1996.',
+        'J.A. Castellanos, J.D. Tardós, and G. Schmidt, "Building a global map of the environment of a mobile robot: The importance of correlations," in Proc. ICRA, 1997, pp. 1053–1059.',
+        'S. Thrun, D. Fox, and W. Burgard, "A probabilistic approach to concurrent mapping and localization for mobile robots," Mach. Learning, vol. 31, no. 1, pp. 29–53, 1998.',
+        'K.S. Chong and L. Kleeman, "Feature-based mapping in real, large scale environments using an ultrasonic array," Int. J. Robot. Res., vol. 18, no. 1, pp. 3–19, 1999.',
+        'J. Hollerbach and D. Koditscheck, Eds., Robotics Research, The Ninth International Symposium (ISRR\'99). Springer, 2000.',
+        'J.J. Leonard and H.J.S. Feder, "A computational efficient method for large-scale concurrent mapping and localisation," in ISRR\'99, Springer, pp. 169–176, 2000.',
+        'S.B. Williams, P. Newman, G. Dissanayake, and H.F. Durrant-Whyte, "Autonomous underwater simultaneous localisation and map building," in Proc. ICRA, 2000, pp. 1793–1798.',
+      ],
+    },
+    {
+      period: '2001–2005',
+      headline: 'Particle-filter era; FastSLAM; scalable mapping with RBPF.',
+      body: (
+        <>
+          Rao–Blackwellized particle filters (FastSLAM) factorize the problem (pose with particles,
+          landmarks analytically), enabling much larger feature maps and grid maps; robustness to
+          some nonlinearities and outliers improves relative to naive EKF.
+        </>
+      ),
+      references: [
+        'J.E. Guivant and E.M. Nebot, "Optimization of the simultaneous localization and map-building algorithm for real-time implementation," IEEE Trans. Robot. Automat., vol. 17, no. 3, pp. 242–257, 2001.',
+        'G. Dissanayake, P. Newman, H.F. Durrant-Whyte, S. Clark, and M. Csobra, "A solution to the simultaneous localisation and mapping (SLAM) problem," IEEE Trans. Robot. Automat., vol. 17, no. 3, pp. 229–241, 2001.',
+        'D. Crisan and A. Doucet, "A survey of convergence results on particle filtering methods for practitioners," IEEE Trans. Signal Processing, vol. 50, no. 3, pp. 736–746, 2002.',
+        'J.J. Leonard, R.J. Rikoski, P.M. Newman, and M.C. Bosse, "Mapping partially observable features from multiple uncertain vantage points," Int. J. Robot. Res., vol. 21, no. 10–11, pp. 943–975, 2002.',
+        'M. Montemerlo, S. Thrun, D. Koller, and B. Wegbreit, "FastSLAM: A factored solution to the simultaneous localization and mapping problem," in Proc. AAAI, 2002, pp. 593–598.',
+        'M. Montemerlo, S. Thrun, D. Koller, and B. Wegbreit, "FastSLAM 2.0: An improved particle filtering algorithm for simultaneous localization and mapping that provably converges," in Proc. IJCAI, 2003, pp. 1151–1156.',
+        'A.J. Davison, Y.G. Cid, and N. Kita, "Real-time 3D SLAM with wide-angle vision," in Proc. IFAC/EURON Symp. Intell. Auton. Vehicles, 2004.',
+        'K. Konolige, "Large-scale map-making," in Proc. AAAI, 2004, pp. 457–463.',
+        'S. Thrun, Y. Liu, D. Koller, A. Ng, and H. Durrant-Whyte, "Simultaneous localisation and mapping with sparse extended information filters," Int. J. Robot. Res., vol. 23, no. 7–8, pp. 693–716, 2004.',
+      ],
+    },
+    {
+      period: '2006–2010',
+      headline: 'Smoothing/optimization renaissance; graph-based SLAM; iSAM.',
+      body: (
+        <>
+          Exploit sparsity (information matrix / factor graphs); re-cast SLAM as nonlinear least
+          squares on a graph of poses and landmarks; incremental smoothing (iSAM) and modern sparse
+          linear algebra make large-scale SLAM practical and accurate.
+        </>
+      ),
+      references: [
+        'H. Durrant-Whyte and T. Bailey, "Simultaneous localization and mapping: Part I," IEEE Robot. Autom. Mag., vol. 13, no. 2, pp. 99–110, 2006.',
+        'T. Bailey and H.F. Durrant-Whyte, "Simultaneous localization and mapping (SLAM): Part II," IEEE Robot. Autom. Mag., vol. 13, no. 3, pp. 108–117, 2006.',
+        'M. Kaess, A. Ranganathan, and F. Dellaert, "iSAM: Incremental smoothing and mapping," IEEE Trans. Robot., vol. 24, no. 6, pp. 1365–1378, 2008.',
+        'G. Grisetti, R. Kümmerle, C. Stachniss, and W. Burgard, "A tutorial on graph-based SLAM," IEEE Intell. Transp. Syst. Mag., vol. 2, no. 4, pp. 31–43, 2010.',
+      ],
+    },
+    {
+      period: '2011–2015',
+      headline: 'Robust, general graph optimization; visual SLAM goes mainstream.',
+      body: (
+        <>
+          General-purpose graph optimizers (e.g., g2o) and mature front-ends drive robust
+          performance; visual SLAM systems achieve high accuracy and reliability. Direct
+          (photometric) and feature-based pipelines both advance.
+        </>
+      ),
+      references: [
+        'R. Kümmerle, G. Grisetti, H. Strasdat, K. Konolige, and W. Burgard, "g2o: A general framework for (hyper) graph optimization," in Proc. ICRA, pp. 3607–3613, 2011.',
+        'M. Kaess, H. Johannsson, R. Roberts, V. Ila, J.J. Leonard, and F. Dellaert, "iSAM2: Incremental smoothing and mapping using the Bayes tree," Int. J. Robot. Res., vol. 31, no. 2, pp. 216–235, 2012.',
+        'J. Engel, T. Schöps, and D. Cremers, "LSD-SLAM: Large-scale direct monocular SLAM," in Proc. ECCV, LNCS 8690, pp. 834–849, 2014.',
+        'R. Mur-Artal, J.M.M. Montiel, and J.D. Tardós, "ORB-SLAM: A versatile and accurate monocular SLAM system," IEEE Trans. Robot., vol. 31, no. 5, pp. 1147–1163, 2015.',
+      ],
+    },
+    {
+      period: '2016–2020',
+      headline: 'Visual–inertial smoothing; robust outlier handling; certifiable methods.',
+      body: (
+        <>
+          Tight visual–inertial smoothing with IMU pre-integration on manifolds; robust back-ends
+          for outliers and loop closures; theory and algorithms for certifiably optimal pose-graph
+          optimization (PGO).
+        </>
+      ),
+      references: [
+        'J. Engel, V. Koltun, and D. Cremers, "Direct sparse odometry," IEEE Trans. Pattern Anal. Mach. Intell., vol. 40, no. 3, pp. 611–625, 2018.',
+        'R. Mur-Artal and J.D. Tardós, "ORB-SLAM2: An open-source SLAM system for monocular, stereo, and RGB-D cameras," IEEE Trans. Robot., vol. 33, no. 5, pp. 1255–1262, 2017.',
+        'T. Qin, P. Li, and S. Shen, "VINS-Mono: A robust and versatile monocular visual–inertial state estimator," IEEE Trans. Robot., vol. 34, no. 4, pp. 1004–1020, 2018.',
+        'T. Shan, B. Englot, D. Meyers, W. Wang, C. Ratti, and D. Rus, "LIO-SAM: Tightly-coupled lidar–inertial odometry via smoothing and mapping," in Proc. IROS, pp. 5135–5142, 2020.',
+        'C. Cadena et al., "Past, Present, and Future of Simultaneous Localization and Mapping: Toward the Robust-Perception Age," IEEE Trans. Robot., vol. 32, no. 6, pp. 1309–1332, 2016.',
+      ],
+    },
+    {
+      period: '2021–2025',
+      headline: 'Differentiable & learned SLAM; neural scene representations; toward Spatial AI.',
+      body: (
+        <>
+          End-to-end differentiable optimization (e.g., differentiable BA) and learned front-ends
+          augment classical SLAM; NeRF and 3D Gaussian Splatting become practical map representations
+          integrated with SLAM. The DARPA Subterranean Challenge accelerated large-scale,
+          multi-robot SLAM under extreme conditions. The field expands toward <strong>Spatial AI</strong>:
+          metric-semantic mapping and 3D scene graphs that support higher-level reasoning.
+        </>
+      ),
+      references: [
+        'Z. Teed and J. Deng, "DROID-SLAM: Deep visual SLAM for monocular, stereo, and RGB-D cameras," in NeurIPS, pp. 16558–16569, 2021.',
+        'Z. Zhu, S. Peng, V. Larsson, W. Xu, H. Bao, Z. Cui, M.R. Oswald, and M. Pollefeys, "NICE-SLAM: Neural implicit scalable encoding for SLAM," in Proc. CVPR, pp. 12786–12796, 2022.',
+        'W. Xu, Y. Cai, D. He, J. Lin, and F. Zhang, "FAST-LIO2: Fast direct lidar–inertial odometry," IEEE Trans. Robot., vol. 38, no. 4, pp. 2053–2073, 2022.',
+        'Y. Chang et al., "LAMP 2.0: A Robust Multi-Robot SLAM System for Operation in Challenging Large-Scale Underground Environments," IEEE Robot. Autom. Letters, vol. 7, no. 4, pp. 9175–9182, 2022.',
+        'N. Hughes, Y. Chang, and L. Carlone, "Hydra: A Real-time Spatial Perception System for 3D Scene Graph Construction and Optimization," Robotics: Science and Systems XVIII, 2022.',
+        'N. Hughes, Y. Chang, S. Hu, et al., "Foundations of spatial perception for robotics: Hierarchical representations and real-time systems," Int. J. Robot. Res., vol. 43, no. 10, pp. 1457–1505, 2024.',
+      ],
+    },
+  ]}
+/>
+
+<Disclosure
+  variant="warn"
+  summary={<>🚨 <strong>Disclaimer</strong> — this list is a small subset of the SLAM literature</>}
+>
+  This list highlights a **small subset** of the vast SLAM literature. The SLAM community is
+  built on the contributions of **hundreds of researchers worldwide**, and every work plays
+  an important role in advancing the field. If you are diving deeper, please explore beyond
+  these references — from early Kalman filter–based methods to modern learning-based and
+  multi-robot SLAM systems.
+</Disclosure>
+
+## Prerequisites (nice to have)
+
+Knowledge of the following will help you understand and derive the main SLAM concepts — you don't need to be an expert.
+
+- **Probability / statistics:** Bayes rule, Gaussians, MAP / MLE, etc.
+- **Linear algebra:** vectors, matrix multiplication, eigen decomposition, etc.
+- **Calculus and analysis:** Taylor expansion, derivatives, etc.
+- **Optimization:** Gauss–Newton, Levenberg–Marquardt, etc.
+- **Programming:** Python (for the code notebooks).
+
+## Reading material
+
+### Videos
+
+- If you are serious about SLAM and want an in-depth study, this series is **a must**:
+  - [Full SLAM Course on YouTube — Prof. Cyrill Stachniss](https://www.youtube.com/playlist?list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_)
+- A nice tutorial on running SLAM in ROS 2:
+  - [Easy SLAM with ROS using slam_toolbox](https://www.youtube.com/watch?v=ZaiA3hWaRzE)
+
+### Books
+
+- An excellent book on probabilistic robotics with in-depth treatment:
+  - [Sebastian Thrun, Wolfram Burgard, and Dieter Fox. *Probabilistic Robotics*. MIT Press, 2005.](https://mitpress.mit.edu/9780262201629/probabilistic-robotics/)
+- An introduction to robotics in general that includes localization:
+  - [Peter Corke. *Robotics, Vision and Control: Fundamental Algorithms in MATLAB* (2nd ed.). Springer, 2017.](https://link.springer.com/book/10.1007/978-3-319-54413-7)
+- Pure state estimation for robotics:
+  - [Timothy D. Barfoot. *State Estimation for Robotics* (2nd ed.). Cambridge University Press, 2024.](https://www.cambridge.org/us/universitypress/subjects/computer-science/computer-graphics-image-processing-and-robotics/state-estimation-robotics-second-edition-2nd-edition?format=HB&isbn=9781009299893)
+- The most recent and complete handbook on SLAM:
+  - [From Localization and Mapping to Spatial Intelligence — SLAM Handbook](https://github.com/SLAM-Handbook-contributors/slam-handbook-public-release)
+- A tutorial approach to SLAM:
+  - [SLAM for Dummies](https://dspace.mit.edu/bitstream/handle/1721.1/119149/16-412j-spring-2005/contents/projects/1aslam_blas_repo.pdf)
+
+### Papers
+
+- A brief overview on the history of SLAM and its solutions:
+  - [Simultaneous Localization and Mapping — Part I](https://ieeexplore.ieee.org/document/1638022) & [Part II](https://ieeexplore.ieee.org/document/1678144)
+- A tutorial specifically for Graph-based SLAM:
+  - [A Tutorial on Graph-Based SLAM](https://ieeexplore.ieee.org/document/5681215)
+- A tutorial specifically for particle-filter localization:
+  - [A Particle Filter Tutorial for Mobile Robot Localization](https://www.researchgate.net/publication/244978679_A_particle_filter_tutorial_for_mobile_robot_localization)
+
+### Other
+
+- A book on Bayesian and Kalman filters with Python implementations — by *Roger Labbe*:
+  - [Kalman-and-Bayesian-Filters-in-Python](https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python)
+- Slides giving an overview of SLAM methods — by *Marios Xanthidis et al.*:
+  - [SLAM Tutorial Slides](https://www.cs.columbia.edu/~allen/F19/NOTES/slam_pka.pdf)
+- A GitHub with Python functions for SLAM — by *Daniels Kraus*:
+  - [SLAM-python](https://github.com/DanielsKraus/SLAM-python/tree/master)
+- A nice blog post on Graph SLAM — by *Federico Sarrocco*:
+  - [Graph SLAM: From Theory to Implementation](https://federicosarrocco.com/blog/graph-slam-tutorial)
+- Pose Graph SLAM 2D/3D implementations using GTSAM — by *Dhyey Manish Rajani*:
+  - [Pose-Graph-SLAM](https://github.com/DhyeyR-007/Pose-Graph-SLAM)
+- More on Recursive Bayesian Filtering — by *Michael Rubinstein*:
+  - [Introduction to Recursive Bayesian Filtering](https://people.csail.mit.edu/mrub/talks/filtering.pdf)
+- Last but not least, the SLAM toolbox for ROS 2 — by *Steve Macenski*:
+  - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)

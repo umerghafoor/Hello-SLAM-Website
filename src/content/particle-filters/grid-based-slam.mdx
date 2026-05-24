@@ -1,12 +1,308 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Figure } from '@/components/Figure';
+import { Algorithm, Step } from '@/components/Algorithm';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/2_particle_filters/4_grid_based_slam.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/2_particle_filters/4_grid_based_slam.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/2_particle_filters/4_grid_based_slam.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## Grid-based SLAM (RBPF)
+## Questions
 
-A **Rao-Blackwellized particle filter** carries an occupancy grid per particle and
-samples trajectories from an improved proposal that includes the latest scan — the core
-idea behind GMapping.
+- *Can we solve the SLAM problem with **no pre-defined landmarks**?*
+- ***Are landmarks useful** to autonomous robots beyond localization?*
+- *Can we use the ideas of FastSLAM to **build occupancy maps**?*
+
+**Reminder — factorization of the SLAM posterior** (Rao-Blackwellization):
+
+$$
+p(x_{0:t},\, m \mid z_{1:t}, u_{1:t}) = p(x_{0:t} \mid z_{1:t}, u_{1:t}) \cdot p(m \mid x_{1:t}, z_{1:t})
+$$
+
+where $p(x_{0:t} \mid z_{1:t}, u_{1:t})$ is the path posterior and $p(m \mid x_{1:t}, z_{1:t})$ is the map posterior.
+
+## Grid-based mapping with known poses
+
+- As with landmarks, **the map depends on the poses** during data acquisition.
+- If the poses are known, grid-based mapping is **easy** ("mapping with known poses").
+
+If we use poses from **raw odometry** in the Pygame demo of the previous lesson, the result is poor. Increase the motion noise and the odometry-only map becomes unreadable — the trajectory drifts, walls don't line up, and the cells get smeared. Setting motion noise to 0 gives the perfect map, but that's cheating; real odometry is noisy. We need better pose estimates.
+
+## Grid-based mapping with RBPFs
+
+- Each particle represents a **possible trajectory** of the robot.
+- Each particle **maintains its own map**.
+- Each particle **updates** it via *"mapping with known poses"*.
+
+**Problem.**
+
+- To get good poses from the particle filter for mapping with *"known poses"*, we need a **large number of particles** to sufficiently model the motion noise.
+- Increasing the number of samples is difficult — each map grows large.
+
+**Idea.** Improve the pose estimate **before** applying the particle filter.
+
+## Pose correction using scan matching
+
+Maximize the likelihood of the current pose **relative to the previous pose and the map built so far**:
+
+$$
+x_t^\star = \arg\max_{x_t} \big\{ \; p(z_t \mid x_t,\, m_{t-1})\; p(x_t \mid u_{t-1},\, x_{t-1}^\star) \; \big\}
+$$
+
+where $z_t$ is the current measurement, $u_{t-1}$ the robot motion, and $m_{t-1}$ the map constructed so far.
+
+> **Note.** Often the map used is a submap consisting of the last 10–20 scans.
+
+In a pygame example you'd reduce odometry drift **before** updating the occupancy grid by aligning the **current scan** to the **current map**.
+
+**Inputs**
+
+- Predicted (odometry) pose: $\hat{x}_t = (x, y, \theta)$
+- Occupancy grid (log-odds) $L \in \mathbb{R}^{G_W \times G_H}$ and probabilities $p = \sigma(L)$
+- Scan $z_t = \{(\varphi_i, r_i)\}_{i=1}^N$ in the robot frame
+
+### Scoring (MAP objective near odometry)
+
+For a candidate pose $x = (x, y, \theta)$ around $\hat{x}_t$:
+
+1. **Transform beam endpoints to world:**
+   $$
+   p_i(x) =
+   \begin{bmatrix} x \\ y \end{bmatrix} +
+   R(\theta)
+   \begin{bmatrix} r_i \cos\varphi_i \\ r_i \sin\varphi_i \end{bmatrix},
+   \quad
+   R(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix}
+   $$
+2. **Correlate with the current map.** Discretize to grid cells $(g_x, g_y) = \lfloor p_i / C \rfloor$ and accumulate, where $C$ is the cell size:
+   $$
+   s_\text{occ}(x) = \sum_{i \in \mathcal{V}} p\big( g_x(p_i(x)),\, g_y(p_i(x)) \big)
+   $$
+   where $\mathcal{V}$ keeps only in-bounds endpoints. This correlation is an **agreement score** between the scan and the map, if displaced by the candidate pose.
+3. **Add a Gaussian motion prior:**
+   $$
+   s(x) = s_\text{occ}(x) - \tfrac{1}{2}\frac{\Delta x^2 + \Delta y^2}{\sigma_\text{trans}^2} - \tfrac{1}{2}\frac{\Delta\theta^2}{\sigma_\text{rot}^2}, \quad \Delta(\cdot) = x - \hat{x}_t
+   $$
+
+**Pose estimate.** Pick $x_t^\star = \arg\max_x s(x)$ in a small neighbourhood of $\hat{x}_t$.
+
+### Search strategy (discrete correlative)
+
+- **Coarse → fine** window over $(\Delta x, \Delta y, \Delta\theta)$ around $\hat{x}_t$.
+- **Beam subsampling** (e.g. every 2nd–4th beam) for speed.
+- Optionally **ignore max-range beams** in the score (limited alignment information).
+
+### Pose update and mapping
+
+- **Blend** odometry with the matched pose, or snap it: $x_t \leftarrow \alpha\, x_t^\star + (1-\alpha)\, \hat{x}_t,\ \alpha \in [0,1]$.
+- **Mapping with (better) known pose** — integrate the same scan into the grid via the inverse sensor model using $x_t$.
+
+## Grid-based FastSLAM with improved odometry
+
+The first idea was to use scan matching to **pre-correct the odometry estimates**.
+
+If we try to plug this into FastSLAM directly, a **slight problem** arises mathematically. The original FastSLAM uses the motion model for proposing poses and the observation model only for weighting. If we use the **observation in the proposal distribution**, the weight derivation no longer holds.
+
+> **Note.** Mathematically not quite right, but in practice it gives better results than raw odometry.
+
+A **better idea** was proposed by **Hähnel et al. (2003)**: scan-match in **small sequences** and feed the corrected sequences into FastSLAM to stitch them together.
+
+- **Pre-correct** short odometry sequences using scan matching.
+- Scan matching provides **locally consistent** pose correction.
+- **Fewer particles** are needed since the input error is smaller.
+
+But this is still an **ad-hoc solution** to an improved proposal distribution.
+
+***Can we do better?*** Yes — move to **FastSLAM 2.0** with an improved proposal, derived for the grid-based approach.
+
+**Goal:**
+
+- More **precise** sampling.
+- More **accurate** maps.
+- **Fewer** particles needed.
+
+## The optimal proposal distribution
+
+If we know the **map** $m^{[i]}$ so far from particle $i$, and we know the **current controls** and **current observation**, we can estimate where we'll end up:
+
+$$
+p(x_t \mid x_{t-1}^{[i]},\, m^{[i]},\, z_t,\, u_t) =
+\frac{p(z_t \mid x_t, m^{[i]})\, p(x_t \mid x_{t-1}^{[i]}, u_t)}
+     {p(z_t \mid x_{t-1}^{[i]}, m^{[i]}, u_t)}
+\quad\quad (1)
+$$
+
+After applying Bayes' rule we see familiar terms — observation model and motion estimate on top.
+
+To build an efficient algorithm we look at the expected shape of these terms. The observation model is typically much more **tightly peaked** than the motion model (which accumulates drift from slip, tyre pressure, etc.). Key assumption:
+
+> For laser rangefinders, $p(z_t \mid x_t, m^{[i]})$ is typically peaked and **dominates** the product in Eq. (1).
+
+The denominator is the integral:
+
+$$
+p(z_t \mid x_{t-1}^{[i]}, m^{[i]}, u_t) = \int p(z_t \mid x_t, m^{[i]})\, p(x_t \mid x_{t-1}^{[i]}, u_t)\, dx_t
+\quad\quad (2)
+$$
+
+— the same product as the numerator. Rewriting:
+
+$$
+p(x_t \mid x_{t-1}^{[i]}, m^{[i]}, z_t, u_t) = \frac{\tau(x_t)}{\int \tau(x_t)\, dx_t}
+$$
+
+We have a product where one term dominates the other:
+
+- $p(z_t \mid x_t, m^{[i]})$ (measurement) **locally** limits the integration region.
+- $p(x_t \mid x_{t-1}^{[i]}, u_t)$ (odometry) **globally** limits the integration region.
+
+We approximate by integrating **only in the restricted area** defined by the dominating term — so the proposal looks like:
+
+$$
+p(x_t \mid x_{t-1}^{[i]}, m^{[i]}, z_t, u_t) \approx
+\frac{\tau(x_t)}{\int_{\{x_t \mid \tau(x_t) > \epsilon\}} \tau(x_t)\, dx_t}
+\quad\quad (3)
+$$
+
+A few **issues**:
+
+- No closed form to sample from.
+- We want it Gaussian for efficient sampling and weight computation.
+
+So we **approximate Eq. (3) by a Gaussian**:
+
+$$
+p(x_t \mid x_{t-1}^{[i]}, m^{[i]}, z_t, u_t) \approx \mathcal{N}(\mu^{[i]}, \Sigma^{[i]})
+$$
+
+**Steps:**
+
+- Take the **maximum** reported by **scan matching**.
+- **Sample locally around** that maximum.
+- **Fit** a Gaussian.
+
+The per-particle mean and covariance:
+
+$$
+\mu^{[i]} = \frac{1}{\eta} \sum_{j=1}^K x_j\, \tau(x_j),
+\qquad
+\Sigma^{[i]} = \frac{1}{\eta} \sum_{j=1}^K (x_j - \mu^{[i]})(x_j - \mu^{[i]})^T \tau(x_j)
+$$
+
+where $x_j$ are points **sampled around** the point $x^\star$ that scan matching converged to. This Gaussian can now be used as the proposal in the particle filter.
+
+### Computing the importance weight
+
+Same derivation as before; applying Eq. (2):
+
+$$
+\begin{aligned}
+w_t^{[i]}
+&= w_{t-1}^{[i]}\, p(z_t \mid x_{t-1}^{[i]}, m^{[i]}, u_t) \\
+&= w_{t-1}^{[i]} \int p(z_t \mid x_t, m^{[i]})\, p(x_t \mid x_{t-1}^{[i]}, u_t)\, dx_t \\
+&\approx w_{t-1}^{[i]} \int_{\{x_t \mid \tau(x_t) > \epsilon\}} \tau(x_t)\, dx_t \\
+&\approx w_{t-1}^{[i]} \sum_{j=1}^K \tau(x_j)
+\end{aligned}
+$$
+
+where $x_j$ are points sampled around the scan-matching maximum.
+
+## Resampling
+
+Resampling at every step **limits the "memory"** of the filter — losing ~25 % of particles per step destroys diversity over time.
+
+**Goal:** reduce resampling actions.
+
+### Selective resampling
+
+Resampling is necessary for convergence but dangerous — important samples can get lost (*particle depletion*). Resampling is only useful if weights **differ significantly**.
+
+**Key question:** *when* to resample?
+
+The **number of effective particles** measures how well the target is approximated by samples from the proposal:
+
+$$
+N_\text{eff} = \frac{1}{\sum_i (w_t^{[i]})^2}
+$$
+
+- $N_\text{eff}$ is the **inverse variance** of the normalized particle weights.
+- For equal weights, the approximation is close to the target.
+- If our approximation is close to the target, **no resampling is needed**.
+- Resample only when $N_\text{eff}$ drops **below a threshold** (typically $N/2$).
+
+> **Note.** Weights must be normalized when computing $N_\text{eff}$.
+
+## Grid-based FastSLAM — quick recap
+
+- A Rao-Blackwellized particle filter where each particle carries a **robot pose** and its own **occupancy grid** (log-odds). No per-landmark EKFs — the map is a grid of Bernoulli cells.
+- Laser measurements produce a **sharp likelihood** around the true pose. We exploit this by **scan-matching** each particle's scan to its own map.
+- **Core loop (per particle):**
+  1. **Predict** pose from odometry.
+  2. **Scan-match** the current scan to the particle's grid; build a **Gaussian proposal** around the matched pose.
+  3. **Sample** the new pose from that proposal and **update the particle's weight** with the measurement likelihood.
+  4. **Update the grid** with the inverse sensor model — cells along each beam become **free**, the endpoint (if any) becomes **occupied** (via log-odds increments).
+  5. **Selective resampling** based on effective sample size.
+- Each grid cell is a Bernoulli updated in log-odds; **scan matching** provides the informative update in pose space.
+- A **better proposal** reduces the number of particles needed, mitigates drift, and improves map consistency in laser-friendly environments.
+- Use a **likelihood field** or **correlation map** for fast scan scores; subsample beams; clamp log-odds; treat max-range returns as free-space only; perform the endpoint-occupied update outside the inner free-space ray loop.
+- Memory / compute scale with **one map per particle**; weak structure or dynamic scenes can degrade scan-matching; poor initial guesses can cause local-minimum failures.
+
+### Grid-based FastSLAM algorithm
+
+<Algorithm name="Grid_FastSLAM" inputs="𝒳_{t-1}, u_t, z_t">
+  <ol>
+    <Step comment="loop particles">{'for k = 1..N:'}</Step>
+    <Step comment="unpack">{'  let ⟨x_{t-1}^{[k]}, m_{t-1}^{[k]}, w_{t-1}^{[k]}⟩ be particle k'}</Step>
+    <Step comment="odometry prediction">{'  x̄_t^{[k]} ~ p(x_t | x_{t-1}^{[k]}, u_t)'}</Step>
+    <Step comment="scan match">{'  x⋆ = ScanMatch(start = x̄_t^{[k]}, map = m_{t-1}^{[k]}, scan = z_t)'}</Step>
+    <Step comment="local samples">{'  generate K local samples {x_j} around x⋆'}</Step>
+    <Step comment="τ = likelihood × motion">{'  for each x_j: τ_j = p(z_t | x_j, m_{t-1}^{[k]}) · p(x_j | x_{t-1}^{[k]}, u_t)'}</Step>
+    <Step comment="normalizer">{'  η = Σ τ_j'}</Step>
+    <Step comment="proposal mean">{'  μ^{[k]} = (1/η) Σ x_j · τ_j'}</Step>
+    <Step comment="proposal covariance">{'  Σ^{[k]} = (1/η) Σ (x_j − μ^{[k]})(x_j − μ^{[k]})ᵀ · τ_j'}</Step>
+    <Step comment="sample new pose">{'  x_t^{[k]} ~ N(μ^{[k]}, Σ^{[k]})'}</Step>
+    <Step comment="importance weight">{'  w^{[k]} = w_{t-1}^{[k]} · Σ τ_j'}</Step>
+    <Step comment="grid update (inverse sensor model)">{'  for each beam b in z_t: along ray mark free cells, mark endpoint occupied'}</Step>
+    <Step comment="save grid">{'  m_t^{[k]} = updated log-odds'}</Step>
+    <Step comment="normalize weights">{'normalize {w^{[k]}}'}</Step>
+    <Step comment="ESS">{'N_eff = 1 / Σ ŵ^{[k]}²'}</Step>
+    <Step comment="selective resample">{'if N_eff < N_thresh: X_t = Resample(⟨x_t^{[k]}, m_t^{[k]}, w^{[k]}⟩_k)'}</Step>
+    <Step comment="else keep">{'else: X_t = {⟨x_t^{[k]}, m_t^{[k]}, w^{[k]}⟩}'}</Step>
+    <Step>{'return X_t'}</Step>
+  </ol>
+</Algorithm>
+
+<Figure
+  src="/figures/grid_rb_pf.gif"
+  alt="Grid-based Rao-Blackwellized particle filter SLAM"
+  caption="Grid-based RBPF SLAM Pygame demo from the source notebook — scan matching + per-particle occupancy grids."
+  width={720}
+  height={400}
+/>
+
+The full Python implementation is in [`notebooks/2_particle_filters/4_grid_based_slam.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/2_particle_filters/4_grid_based_slam.ipynb).
+
+## Summary
+
+- An approach to SLAM that combines **scan matching** and **FastSLAM**.
+- Scan matching generates virtual "high-quality" motion estimates.
+- Can be viewed as an **ad-hoc solution** to an improved proposal distribution.
+- The idea of FastSLAM applies in the **grid-map** context as well.
+- **Improved proposals are essential.**
+- Similar to scan matching on a **per-particle** basis.
+- **Selective resampling** reduces the risk of particle depletion.
+- **Substantially fewer particles** required.
+
+---
+
+## Reading material
+
+**Grid-FastSLAM with improved proposals**
+- Grisetti et al. ***Improved Techniques for Grid Mapping with Rao-Blackwellized Particle Filters***, 2007.
+- Stachniss et al. ***Analyzing Gaussian Proposal Distributions for Mapping***, 2007.
+
+**Grid-FastSLAM & scan matching**
+- Hähnel et al. ***An Efficient FastSLAM Algorithm for Generating Maps of Large-Scale Cyclic Environments from Raw Laser Range Measurements***, 2003.

@@ -1,12 +1,290 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Figure } from '@/components/Figure';
+import { Algorithm, Step } from '@/components/Algorithm';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/2_particle_filters/3_fast_slam.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/2_particle_filters/3_fast_slam.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/2_particle_filters/3_fast_slam.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
+
+This lesson formulates and implements **feature-based SLAM** using a **Rao–Blackwellized Particle Filter** (FastSLAM).
+
+## Particle representation
+
+As in the previous lesson, particles are a **set of weighted samples**:
+
+$$
+\mathcal{X} = \left\{ \langle x^{[i]},\, w^{[i]} \rangle \right\}_{i=1,\dots,N}
+$$
+
+where each sample is a hypothesis about the state. For feature-based SLAM, the state is:
+
+$$
+x = (x_{1:t},\, m_{1,x},\, m_{1,y},\, m_{2,x},\, m_{2,y},\, \dots,\, m_{M,x},\, m_{M,y})^T
+$$
+
+where $x_{1:t}$ are the robot poses and $m_j$ are the landmark positions.
+
+### Dimensionality problem
+
+Particle filters work well in **low-dimensional** spaces — likely regions of the state must be covered with samples. The state above is **high-dimensional**.
+
+> *Can we exploit dependencies between dimensions of the state space?*
+>
+> If we **know the robot poses**, **mapping is easy**.
+
+**Key idea.** Use particles **only to model the robot's path**. Each sample is a **path hypothesis** — and for each sample we can compute an **individual map of landmarks**.
+
+### Rao-Blackwellization
+
+A trivial **factorization** that exploits dependencies between variables:
+
+$$
+p(a, b) = p(b \mid a) \cdot p(a)
+$$
+
+If $p(b \mid a)$ can be computed efficiently, then represent only $p(a)$ with samples and compute $p(b \mid a)$ for every sample. In our case, $a$ is the robot trajectory and $b$ is the map.
+
+So instead of sampling $p(a, b)$ directly, we represent $p(a)$ with particles, then compute $p(b \mid a)$ — **the map given the trajectory** — for each particle. Because for grid maps, **mapping is easy if we know the poses**.
+
+## Rao-Blackwellization for SLAM
+
+Applying the factorization to the SLAM posterior:
+
+$$
+p(x_{0:t},\, m_{1:M} \mid z_{1:t}, u_{1:t}) =
+\underbrace{p(x_{0:t} \mid z_{1:t}, u_{1:t})}_{\text{path posterior}}
+\cdot
+\underbrace{p(m_{1:M} \mid x_{0:t}, z_{1:t})}_{\text{map posterior}}
+\quad\quad (1)
+$$
+
+> **Note.** First introduced for SLAM by **Murphy, 1999**.
+
+Because we factor into path + map (given poses), landmarks are **conditionally independent given the path**:
+
+$$
+p(x_{0:t},\, m_{1:M} \mid z_{1:t}, u_{1:t}) =
+p(x_{0:t} \mid z_{1:t}, u_{1:t})
+\cdot \prod_{i=1}^{M} p(m_i \mid x_{0:t}, z_{1:t})
+$$
+
+With this factorization we use:
+
+- **MCL** to estimate the **robot poses**.
+- **2-D EKFs** (one per landmark) to maintain **the map**.
+
+Managing $M$ independent $2 \times 2$ EKFs is far more efficient than a single joint filter over all landmarks.
+
+> **Note.** First exploited in FastSLAM by **Montemerlo et al., 2002**.
+
+## Modelling the robot's path
+
+We use the sample-based representation for $p(x_{0:t} \mid z_{1:t}, u_{1:t})$. Each sample is a path hypothesis: $x_0$ (typically $(0,0,0)$), $x_1$, $x_2$, ….
+
+Since the particle filter **does not revise past poses** if a mistake is made, we don't need to maintain them in the sample set.
 
 ## FastSLAM
 
-FastSLAM factors the SLAM posterior into a particle filter over trajectories and a set
-of **independent EKFs** over each landmark, conditioned on the trajectory. This avoids
-the $O(N^2)$ covariance of EKF-SLAM.
+This leads to the **first efficient SLAM implementation**, **FastSLAM** by Montemerlo et al., 2002.
+
+- Each **landmark** is represented by a **$2 \times 2$ EKF**.
+- Each **particle** maintains $M$ independent EKFs for its landmarks.
+
+Two updates:
+
+- **Action update.** Sample a new pose using the proposal distribution (motion model).
+- **Sensor update.** EKF on observed landmarks.
+
+### Key steps of FastSLAM 1.0
+
+1. **Extend** the path posterior by sampling a new pose for each particle:
+   $$
+   x_t^{[k]} \sim p(x_t \mid x_{t-1}^{[k]},\, u_t)
+   $$
+2. **Compute particle weights** via the observation likelihood:
+   $$
+   w^{[k]} = |2\pi Q|^{-1/2}\, \exp\!\left( -\tfrac{1}{2}(z_t - \hat{z}^{[k]})^T Q^{-1} (z_t - \hat{z}^{[k]}) \right)
+   $$
+3. **Update** the belief of the **observed** landmarks with the EKF update rule.
+4. **Resample** particles.
+
+### FastSLAM 1.0 algorithm
+
+<Algorithm name="FastSLAM_1.0" inputs="𝒳_{t-1}, c_t, u_t, z_t">
+  <ol>
+    <Step comment="for each particle">{'for k = 1..N:'}</Step>
+    <Step comment="unpack particle">{'  let ⟨x_{t-1}^{[k]}, {⟨μ_{j,t-1}^{[k]}, Σ_{j,t-1}^{[k]}⟩}_j⟩ be particle k'}</Step>
+    <Step comment="sample new pose">{'  x_t^{[k]} ~ p(x_t | x_{t-1}^{[k]}, u_t)'}</Step>
+    <Step comment="observed landmark id">{'  j = c_t'}</Step>
+    <Step comment="if landmark j is new">{'  if j never seen before:'}</Step>
+    <Step comment="init mean">{'    μ_{j,t}^{[k]} = h⁻¹(z_t, x_t^{[k]})'}</Step>
+    <Step comment="Jacobian">{'    H = h′(μ_{j,t}^{[k]}, x_t^{[k]})'}</Step>
+    <Step comment="init covariance">{'    Σ_{j,t}^{[k]} = H⁻¹ Q_t (H⁻¹)ᵀ'}</Step>
+    <Step comment="default weight">{'    w^{[k]} = p_0'}</Step>
+    <Step comment="else (EKF update)">{'  else:'}</Step>
+    <Step comment="predicted measurement">{'    ẑ^{[k]} = h(μ_{j,t-1}^{[k]}, x_t^{[k]})'}</Step>
+    <Step comment="Jacobian">{'    H = h′(μ_{j,t-1}^{[k]}, x_t^{[k]})'}</Step>
+    <Step comment="meas. covariance">{'    Q = H Σ_{j,t-1}^{[k]} Hᵀ + Q_t'}</Step>
+    <Step comment="Kalman gain">{'    K = Σ_{j,t-1}^{[k]} Hᵀ Q⁻¹'}</Step>
+    <Step comment="update mean">{'    μ_{j,t}^{[k]} = μ_{j,t-1}^{[k]} + K (z_t − ẑ^{[k]})'}</Step>
+    <Step comment="update covariance">{'    Σ_{j,t}^{[k]} = (I − K H) Σ_{j,t-1}^{[k]}'}</Step>
+    <Step comment="importance weight">{'    w^{[k]} = |2π Q|⁻¹ᐟ² exp(−½ (z_t − ẑ^{[k]})ᵀ Q⁻¹ (z_t − ẑ^{[k]}))'}</Step>
+    <Step comment="leave unobserved unchanged">{'  for all unobserved j′: keep ⟨μ_{j′}^{[k]}, Σ_{j′}^{[k]}⟩'}</Step>
+    <Step comment="resample">{'X_t = Resample(⟨x_t^{[k]}, …, w^{[k]}⟩_k)'}</Step>
+    <Step>{'return X_t'}</Step>
+  </ol>
+</Algorithm>
+
+## The importance weight
+
+As we mentioned earlier, **the weight comes from the importance sampling principle**:
+
+$$
+w^{[k]} = \frac{\text{target}(x^{[k]})}{\text{proposal}(x^{[k]})}
+\quad\quad (2)
+$$
+
+Mathematical derivation:
+
+- **Target distribution** — the robot's path: $p(x_{1:t} \mid z_{1:t}, u_{1:t})$
+- **Proposal distribution** — all odometry information except the last observation: $p(x_{1:t} \mid z_{1:t-1}, u_{1:t})$
+- The proposal factors recursively:
+  $$
+  p(x_{1:t} \mid z_{1:t-1}, u_{1:t}) =
+  \underbrace{p(x_t \mid x_{t-1}, u_t)}_{\mathcal{X}_{t-1} \to \bar{\mathcal{X}}_t}
+  \cdot
+  \underbrace{p(x_{1:t-1} \mid z_{1:t-1}, u_{1:t-1})}_{\mathcal{X}_{t-1}}
+  $$
+
+Plugging in:
+
+$$
+\begin{aligned}
+w^{[k]} &= \frac{p(x_{1:t}^{[k]} \mid z_{1:t}, u_{1:t})}{p(x_t^{[k]} \mid x_{t-1}^{[k]}, u_t)\, p(x_{1:t-1}^{[k]} \mid z_{1:t-1}, u_{1:t-1})} \\
+&= \eta\, p(z_t \mid x_{1:t}^{[k]}, z_{1:t-1}) \quad\quad (4)
+\end{aligned}
+$$
+
+(after applying Bayes' rule and cancelling the matching motion / past-path terms).
+
+Integrating over the observed landmark position:
+
+$$
+\begin{aligned}
+w^{[k]}
+&= \eta \int p(z_t \mid x_{1:t}^{[k]}, z_{1:t-1}, m_j)\, p(m_j \mid x_{1:t}^{[k]}, z_{1:t-1})\, dm_j \\
+&= \eta \int \underbrace{p(z_t \mid x_t^{[k]}, m_j)}_{\mathcal{N}(z_t;\, \hat{z}^{[k]}, Q_t)} \cdot \underbrace{p(m_j \mid x_{1:t}^{[k]}, z_{1:t-1})}_{\mathcal{N}(m_j;\, \mu_{j,t-1}^{[k]}, \Sigma_{j,t-1}^{[k]})}\, dm_j
+\end{aligned}
+$$
+
+where:
+
+- $p(m_j \mid x_{1:t}^{[k]}, z_{1:t-1})$ is the **landmark prior** for particle $k$.
+- $p(z_t \mid x_t^{[k]}, m_j)$ is the **measurement model** with sensor noise $Q_t$.
+- $\hat z^{[k]} \approx h(x_t^{[k]}, \mu_{j,t-1}^{[k]})$ is the **predicted measurement** (first-order linearization w.r.t. the landmark).
+
+The total measurement covariance is the **projected landmark uncertainty plus the sensor noise**:
+
+$$
+Q = H\, \Sigma_{j,t-1}^{[k]}\, H^\top + Q_t
+$$
+
+where $H$ is the Jacobian of the measurement model w.r.t. the landmark.
+
+The marginal likelihood after integrating out $m_j$ is Gaussian, so:
+
+$$
+w^{[k]} \approx |2\pi Q|^{-1/2}\, \exp\!\left( -\tfrac{1}{2} (z_t - \hat z^{[k]})^\top Q^{-1} (z_t - \hat z^{[k]}) \right)
+$$
+
+> **Note.** The weight tells us how consistent each sample's world is with what the system actually perceives.
+
+## Implementation sketch
+
+The full FastSLAM 1.0 Pygame demo from the source notebook lives in three blocks:
+
+1. **FastSLAM core** — a Rao-Blackwellized particle filter over the robot pose, where each particle carries an independent landmark map represented by tiny $2 \times 2$ EKFs (position only).
+2. **Map and LiDAR handling.**
+3. **Pygame demo app.**
+
+**Assumptions / scope:**
+
+- **Known data association** — the front-end provides an integer landmark ID for each measurement; the core does *not* solve association.
+- **2-D state** — robot pose $(x, y, \theta)$; each landmark $m_j \in \mathbb{R}^2$.
+- **Measurements** — range-bearing $z = (r, \varphi)$ in the robot frame, with Gaussian noise $Q \in \mathbb{R}^{2 \times 2}$.
+- **Motion model** — odometry $(\Delta r_1, \Delta t, \Delta r_2)$ with Gaussian noise $R_x$.
+
+**Per-time-step flow:**
+
+1. **Predict (particles).** Sample each particle pose from the odometry proposal.
+2. **Correct (EKFs inside each particle).**
+   - Measurement model $h(x, m)$.
+   - Jacobian $H = \partial h / \partial m \in \mathbb{R}^{2 \times 2}$.
+   - For a new landmark ID, initialize $\mu_j$ via inverse sensor model and $\Sigma_j$ from a local linearization.
+   - For an existing landmark, run an EKF update — compute the Kalman gain via a numerically stable linear solve rather than explicit matrix inversion ($K = \Sigma H^T (H \Sigma H^T + Q)^{-1}$).
+   - Accumulate the measurement log-likelihood to update the particle weight.
+3. **Normalize weights** and compute the effective sample size $N_\text{eff}$.
+4. **Systematic resampling** when $N_\text{eff} < \text{ratio} \times N$.
+
+<Figure
+  src="/figures/particle_filter.gif"
+  alt="FastSLAM Pygame demo"
+  caption="FastSLAM Pygame demo from the source notebook — feature-based SLAM with per-particle landmark EKFs. See the original repo to run interactively."
+  width={720}
+  height={400}
+/>
+
+The full Python implementation is in [`notebooks/2_particle_filters/3_fast_slam.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/2_particle_filters/3_fast_slam.ipynb).
+
+## FastSLAM complexity
+
+- **Update robot particles** based on the control: $O(N)$
+- **Incorporate an observation** into the Kalman filters: $O(N)$
+- **Resample** particle set: $O(N \cdot M)$
+
+where $N$ is the number of particles and $M$ is the number of landmarks. So FastSLAM 1.0 is $O(N \cdot M)$.
+
+## From FastSLAM 1.0 to FastSLAM 2.0
+
+**FastSLAM 1.0** uses the motion model as the proposal distribution:
+
+$$
+x_t^{[k]} \sim p(x_t \mid x_{t-1}^{[k]}, u_t)
+$$
+
+*But is there a better distribution to sample from?*
+
+**FastSLAM 2.0** also considers the measurements during sampling — especially useful with an **accurate sensor** (predictions from scan matching, compared to the motion noise). It samples from:
+
+$$
+x_t^{[k]} \sim p\!\left(x_t \mid x_{t-1}^{[k]}, u_{1:t}, z_{1:t}\right)
+$$
+
+The result is a **more peaked proposal distribution** — **fewer particles required**, more robust and more accurate, but **more complex**.
+
+## Summary
+
+- Uses a **particle filter** to model the belief over **robot paths**.
+- **Factorizes** the SLAM posterior into low-dimensional problems.
+- **Samples only the robot's path**; for each particle, computes the landmarks (independent EKFs) given the path.
+- **Weights** measure how consistent each sample's world is with what the system perceives.
+- Per-particle data association.
+- No robot-pose uncertainty in the per-particle data association.
+- **FastSLAM 1.0** and **FastSLAM 2.0** differ in the proposal distribution.
+- Complexity: $O(N \cdot \log M)$.
+- **Scales well** (1 M+ features).
+- **Robust to data-association ambiguities**.
+- Advantages over the classical EKF approach (especially with nonlinearities).
+
+---
+
+## Reading material
+
+**FastSLAM**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **§13.1–13.3, §13.8**.
+- Montemerlo, Thrun, Koller, Wegbreit. ***FastSLAM: A Factored Solution to the Simultaneous Localization and Mapping Problem***, 2002.
+- Montemerlo, Thrun. ***Simultaneous Localization and Mapping with Unknown Data Association Using FastSLAM***, 2003.

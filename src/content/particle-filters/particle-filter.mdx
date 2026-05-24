@@ -1,12 +1,189 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Algorithm, Step } from '@/components/Algorithm';
+import { ParticlesViz } from '@/components/viz/ParticlesViz';
+import { ImportanceSamplingViz } from '@/components/viz/ImportanceSamplingViz';
+import { ResamplingViz } from '@/components/viz/ResamplingViz';
+import { MCLViz } from '@/components/viz/MCLViz';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/2_particle_filters/2_particle_filter.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/2_particle_filters/2_particle_filter.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/2_particle_filters/2_particle_filter.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## Monte Carlo Localization
+## A short intro to PF and Monte Carlo Localization
 
-When the belief is too weird for a Gaussian — multimodal, asymmetric, constrained by
-walls — we approximate it with a cloud of weighted **particles**. Each tick we sample
-from the motion model, weight by the sensor model, and resample.
+The Kalman filter and its variants only model **Gaussian** beliefs. The **particle filter** drops that restriction:
+
+- Use **multiple samples (particles)** to represent the belief over a pose.
+- The more samples in a region, the **higher the probability** there.
+- Each particle has a **weight**; larger weight ⇒ higher probability.
+
+## Particle set
+
+The **particles** are a set of weighted samples:
+
+$$
+\mathcal{X} = \left\{ \langle x_t^{[j]},\, w_t^{[j]} \rangle \right\}_{j=1,\dots,J}
+$$
+
+where $x_t^{[j]}$ is a **state hypothesis** and $w_t^{[j]}$ is its **importance weight**. The samples represent the posterior as a sum of Dirac deltas:
+
+$$
+p(x) \;\approx\; \sum_{j=1}^J w^{[j]}\, \delta_{x^{[j]}}(x)
+$$
+
+> **Note.** More accurate representation needs more samples. The bigger or more complex the distribution, the more samples — and that directly drives compute cost.
+
+<ParticlesViz />
+
+Switch between a unimodal Gaussian and a bimodal mixture and watch how the rug-mark density on the x-axis tracks the true PDF. Crank the particle count down to a handful and the approximation gets blocky; crank it up and the histogram smooths out toward the curve.
+
+## How do we obtain such samples?
+
+**Closed-form sampling** is only possible for a few distributions (e.g. Gaussian). For arbitrary distributions, use **importance sampling**.
+
+## Importance sampling principle
+
+Use a different **proposal** distribution $g(x)$ to generate samples and account for the difference with a weight:
+
+$$
+w(x) \propto \frac{f(x)}{g(x)}
+$$
+
+**Pre-condition:** if $f(x) > 0$ then $g(x) > 0$.
+
+<ImportanceSamplingViz />
+
+A **good** (broad) proposal covers both modes of the bimodal target — the weighted bars follow $f(x)$ closely and the effective sample size is high. A **bad** (narrow) proposal misses the left mode entirely; a few extreme weights dominate and the ESS collapses — the estimate is noisy even with thousands of samples.
+
+> **Takeaway.** A well-matched proposal yields a weighted histogram that closely follows $f$. A poor proposal leads to a few dominating weights and a noisy approximation.
+
+## Particle filter (PF)
+
+The **particle filter** is a realization of the **recursive Bayes filter** — specifically a **non-parametric** approach that does not maintain a closed-form distribution.
+
+The two Bayes-filter steps become:
+
+- **Prediction step.** Draw samples from the proposal distribution (use the motion model to sample).
+- **Correction step.** Use the observations to compute the correction (weights).
+
+The more samples we use, the better our estimate.
+
+### Particle filter algorithm
+
+<Algorithm name="Particle_Filter" inputs="𝒳_{t-1}, u_t, z_t">
+  <ol>
+    <Step comment="init">{'X̄_t = X_t = ∅'}</Step>
+    <Step comment="iterate over previous samples">for j = 1 to J:</Step>
+    <Step comment="sample from proposal">  {'x_t^{[j]} ~ π(x_t)'}</Step>
+    <Step comment="importance weight">  {'w_t^{[j]} = p(x_t^{[j]}) / π(x_t^{[j]})'}</Step>
+    <Step comment="add to predicted set">  {'X̄_t = X̄_t ∪ ⟨x_t^{[j]}, w_t^{[j]}⟩'}</Step>
+    <Step comment="resample">for j = 1 to J:</Step>
+    <Step comment="draw i ∝ weights">  {'draw i ∈ 1..J with probability ∝ w_t^{[i]}'}</Step>
+    <Step comment="copy particle">  {'add x_t^{[i]} to X_t'}</Step>
+    <Step>{'return X_t'}</Step>
+  </ol>
+</Algorithm>
+
+## Monte Carlo Localization (MCL)
+
+When we **only localize** and assume a **known map** (e.g., an occupancy grid), the particle filter specializes to **Monte Carlo Localization (MCL)**.
+
+- Each particle is a **pose hypothesis**.
+- **Proposal** is the **motion model**:
+  $$
+  x_t^{[j]} \sim p(x_t \mid x_{t-1},\, u_t)
+  $$
+- **Correction** uses the **observation model** with known map $m$:
+  $$
+  w_t^{[j]} \propto p(z_t \mid x_t,\, m)
+  $$
+
+Compared to the generic particle filter algorithm, lines 3 and 4 become:
+
+- Sample from motion model: $x_t^{[j]} \sim p(x_t \mid x_{t-1}^{[j]}, u_t)$
+- Weight by observation likelihood: $w_t^{[j]} = p(z_t \mid x_t^{[j]})$
+
+> **Note.** The particle filter becomes MCL when we choose the motion model as the proposal. A more detailed derivation shows that the importance weight then becomes proportional to the observation likelihood.
+
+## Resampling
+
+Resampling **reallocates our limited particle budget** — low-weight (unlikely) samples die out, high-weight (likely) ones get replicated, so the particle set better captures the belief at each step.
+
+- **Prune** low-weight particles — weak hypotheses die out.
+- **Replicate** high-weight particles — stronger hypotheses.
+- Concentrate computational effort on **high-probability regions** of the state space.
+- "Survival of the fittest" — avoids many samples covering unlikely states.
+
+### Resampling methods
+
+**Roulette wheel resampling**
+- Build the cumulative sum (CDF) of normalized weights.
+- Draw $J$ independent uniforms $u_j \sim \mathcal{U}(0, 1)$.
+- For each $u_j$, find the first CDF bin $\ge u_j$ (binary search) and copy that particle.
+- Complexity: $O(J \log J)$.
+- Simple but **higher variance** — a few high-weight particles may be chosen many times.
+
+**Stochastic Universal Sampling (SUS)**
+- Build the CDF of normalized weights.
+- Draw a single random offset $r \sim \mathcal{U}(0, 1/J)$.
+- Place $J$ equally spaced pointers at $r,\ r + \tfrac{1}{J},\ r + \tfrac{2}{J},\ \dots$
+- For each pointer, select the first CDF bin $\ge$ pointer and copy that particle.
+- Complexity: $O(J)$.
+- **Low variance** — allocations are closer to expected counts, reducing sample impoverishment.
+
+<ResamplingViz />
+
+The top strip shows the CDF — each bin's width is proportional to the particle's weight. The middle strip shows the pointers (red): random for roulette wheel, evenly spaced for SUS. The bottom histogram shows the resulting offspring count per particle. Switch methods and reseed a few times: roulette is much "lumpier" than SUS even though both sample the same CDF.
+
+## A working MCL example
+
+<MCLViz />
+
+This is Monte Carlo Localization running in your browser: 300 particles start scattered across the free space with random orientations. The green robot follows a pre-set trajectory. Each tick: every particle is pushed by the motion model + noise, then weighted by how well its simulated LiDAR scan matches the real one, then we resample if the effective sample size drops below half. Within a couple of seconds the red particle cloud collapses onto the green robot — that's the filter "locking on".
+
+### What we implemented beyond the textbook MCL
+
+The notebook ships a Pygame demo with a few practical tricks on top of the textbook algorithm:
+
+- **Likelihood-field sensor model** (endpoint distance). Instead of the full probabilistic beam model, precompute a distance field of the occupancy map and score each particle by how close beam endpoints fall to walls. Fast and stable. Tuning knob: `sigma_hit` (px std around the endpoint).
+- **Beam subsampling + hit-only beams.** Using every $s$-th beam cuts measurement cost by ~$s$ with minor accuracy loss. Ignoring max-range beams (which are weakly informative in the likelihood-field model) stabilizes the update in structured maps.
+- **Pixel-quantized particles.** Snap each particle's $(x, y)$ to integer pixel centers so visualization is crisp and map collision checks are simple. Keep $\theta$ continuous.
+- **Top-K read-out + EMA smoothing.** Compute the displayed estimate from the top-K% particles by weight (less mean-of-modes bias) and smooth with an EMA (visualization only — the filter state is untouched).
+- **Systematic resampling + random injection.** Resample only when ESS drops below a threshold; after resampling, inject a small fraction of random free-space particles to combat impoverishment and recover from kidnapping.
+
+<Disclosure summary={<>📝 <strong>Practical parameters to play with</strong></>}>
+
+- `sigma_hit = 8.0` — std (px) for the endpoint distance likelihood. ↑ → smoother but slower; ↓ → faster lock-on but more jitter.
+- `use_only_hit_beams = True` — ignore no-hit (max-range) beams; stabilizes weighting in structured maps.
+- `Np = 1000` — number of particles; more = better coverage, more compute.
+- `top_k_frac = 0.8` — fraction of top particles used for the read-out; with large `Np` you can use 5–10%.
+- `smooth_alpha = 0.25` — EMA blend for the displayed pose (visualization only); typical 0.2–0.4.
+- `random_injection_frac = 0.01` — fraction of particles replaced by uniform free-space samples after each resample; ↑ better recovery, slower convergence.
+- `resample_neff_ratio = 0.5` — trigger resampling when $N_\text{eff} / N_p < 0.5$.
+
+</Disclosure>
+
+## Summary
+
+- Particle filters are **non-parametric recursive Bayes filters**.
+- The posterior is represented by a **set of weighted samples**.
+- **Propose** to draw samples.
+- **Weight** to account for the difference between proposal and target.
+- Work well in **low-dimensional** spaces.
+- **Monte Carlo Localization** is a particle filter where:
+  - Particles are **propagated** according to the **motion model**.
+  - They are **weighted** according to the **observation likelihood**.
+
+---
+
+## Reading material
+
+**Particle filter**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **Chapter 3**.
+
+**Monte Carlo Localization**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **§8.3**.

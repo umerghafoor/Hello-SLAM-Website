@@ -1,19 +1,313 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Algorithm, Step } from '@/components/Algorithm';
+import { BayesFilterViz } from '@/components/viz/BayesFilterViz';
+import { GaussianTransformViz } from '@/components/viz/GaussianTransformViz';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/1_kalman_filters/3_kalman_filters.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/1_kalman_filters/3_kalman_filters.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/1_kalman_filters/3_kalman_filters.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## Kalman & Extended Kalman Filters
+## Kalman filter
 
-When the belief is Gaussian and the motion / sensor models are linear, the Bayes filter
-collapses into closed-form updates on a mean $\mu$ and covariance $\Sigma$ — the **Kalman
-filter**.
+The Kalman filter is a **Bayes filter** specifically designed for **linear-Gaussian** estimation problems. Under those assumptions it provides the **optimal solution**:
 
-For nonlinear systems we linearize via Jacobians at the current estimate, giving the
-**Extended Kalman Filter (EKF)**:
+- **Linear** motion and observation models.
+- **Zero-mean Gaussian** noise in both motion and sensor measurements.
+
+Everything in the Kalman filter **remains Gaussian**, which is essential to its closed-form updates.
+
+### Gaussian distributions
+
+A Gaussian (normal) distribution is:
 
 $$
-\bar\mu_t = g(u_t, \mu_{t-1}), \qquad \bar\Sigma_t = G_t \Sigma_{t-1} G_t^\top + R_t.
+p(x) = \det(2\pi\Sigma)^{-\tfrac{1}{2}}\exp\!\left(-\tfrac{1}{2}(x-\mu)^T\Sigma^{-1}(x-\mu)\right)
 $$
+
+Two crucial properties of Gaussians are **marginalization** and **conditioning**.
+
+**Marginalization.** Given the joint:
+
+$$
+p(x)
+= p\!\left(\begin{bmatrix} x_a \\ x_b \end{bmatrix}\right)
+= \mathcal{N}\!\left(
+\begin{bmatrix} \mu_a \\ \mu_b \end{bmatrix},
+\begin{bmatrix} \Sigma_{aa} & \Sigma_{ab} \\ \Sigma_{ba} & \Sigma_{bb} \end{bmatrix}\right)
+$$
+
+the marginal of $x_a$ is:
+
+$$
+p(x_a) = \int p(x_a, x_b)\, dx_b = \mathcal{N}(\mu_a,\, \Sigma_{aa})
+$$
+
+**Conditioning.** The conditional of $x_a$ given $x_b$ is Gaussian:
+
+$$
+p(x_a \mid x_b) = \mathcal{N}(\mu,\, \Sigma)
+$$
+
+with:
+
+$$
+\mu = \mu_a + \Sigma_{ab}\Sigma_{bb}^{-1}(x_b - \mu_b)
+\qquad
+\Sigma = \Sigma_{aa} - \Sigma_{ab}\Sigma_{bb}^{-1}\Sigma_{ba}
+$$
+
+> **Note.** Inverting $\Sigma_{bb}$ can be computationally expensive. When we know very little about $x_b$, the second term tends toward zero.
+
+### Linear models
+
+The Kalman filter **assumes linear models**:
+
+**Linear motion model:**
+
+$$
+x_t = A_t x_{t-1} + B_t u_t + \epsilon_t
+$$
+
+**Linear observation model:**
+
+$$
+z_t = C_t x_t + \delta_t
+$$
+
+These represent the **mean models**, with uncertainty injected through Gaussian noise terms $\epsilon_t,\delta_t$ having covariances $R_t$ and $Q_t$.
+
+Components:
+
+- $A_t$ — state transition matrix ($n \times n$), describing state evolution without controls or noise.
+- $B_t$ — control input matrix ($n \times \ell$), describing how controls influence the state.
+- $C_t$ — observation matrix ($k \times n$), mapping the state space to observations.
+- $\epsilon_t, \delta_t$ — Gaussian noise for process and measurement.
+
+The motion and observation distributions are:
+
+$$
+p(x_t \mid u_t, x_{t-1}) = \det(2\pi R_t)^{-\tfrac{1}{2}} \exp\!\left(-\tfrac{1}{2}(x_t - A_t x_{t-1} - B_t u_t)^T R_t^{-1}(x_t - A_t x_{t-1} - B_t u_t)\right)
+$$
+
+$$
+p(z_t \mid x_t) = \det(2\pi Q_t)^{-\tfrac{1}{2}} \exp\!\left(-\tfrac{1}{2}(z_t - C_t x_t)^T Q_t^{-1}(z_t - C_t x_t)\right)
+$$
+
+### Kalman filter algorithm
+
+The Kalman filter recursively computes the belief in two steps: **prediction** and **correction**.
+
+<Algorithm name="Kalman_Filter" inputs="μ_{t-1}, Σ_{t-1}, u_t, z_t">
+  <ol>
+    <Step comment="Prediction: mean">{'μ̄_t = A_t μ_{t-1} + B_t u_t'}</Step>
+    <Step comment="Prediction: covariance">{'Σ̄_t = A_t Σ_{t-1} A_tᵀ + R_t'}</Step>
+    <Step comment="Kalman gain">K_t = Σ̄_t C_tᵀ (C_t Σ̄_t C_tᵀ + Q_t)⁻¹</Step>
+    <Step comment="Update mean">μ_t = μ̄_t + K_t (z_t − C_t μ̄_t)</Step>
+    <Step comment="Update covariance">Σ_t = (I − K_t C_t) Σ̄_t</Step>
+    <Step comment="Updated belief">return μ_t, Σ_t</Step>
+  </ol>
+</Algorithm>
+
+#### Interpreting the Kalman gain ($K_t$)
+
+The Kalman gain trades off how confident we are in observations versus prediction:
+
+- **No measurement uncertainty** ($Q_t = 0$): $\quad K_t = C_t^{-1}$ — the update directly maps observations into state space.
+- **Infinite measurement uncertainty** ($Q_t \to \infty$): $\quad K_t = 0$ — no correction is performed.
+
+> **Further reading.** Mathematical proofs and detailed derivations of the Kalman filter are in *Probabilistic Robotics*, §3.2.4.
+
+### Python example — 1D Kalman filter
+
+A simple 1-dimensional walk through **prediction**, **measurement**, and **correction**.
+
+**1. Prediction.** Using $x_t = A x_{t-1} + B u + \epsilon,\ \epsilon \sim \mathcal{N}(0, R)$:
+
+```python
+import numpy as np
+
+# Prior belief
+mu_0, sigma_0 = 0.0, 1.0
+
+# Motion model parameters
+A, B, u, R = 1.0, 1.0, 5.0, 2.0
+
+# Prediction
+mu_pred    = A * mu_0 + B * u
+sigma_pred = A**2 * sigma_0 + R
+```
+
+**2. Measurement.** Simulate a noisy reading $z = C x_t + \delta$ with $\delta \sim \mathcal{N}(0, Q)$:
+
+```python
+C, Q, z = 1.0, 4.0, 8.0
+```
+
+**3. Correction.** The 1-D Kalman gain is $K = \dfrac{\sigma_{pred}\, C}{C^2 \sigma_{pred} + Q}$:
+
+```python
+K          = sigma_pred * C / (C**2 * sigma_pred + Q)
+mu_corr    = mu_pred + K * (z - C * mu_pred)
+sigma_corr = (1 - K * C) * sigma_pred
+```
+
+Plotting the three densities (prediction, measurement, correction) shows the core idea of Kalman filtering: **recursive fusion** of prediction and observation under Gaussian assumptions. In higher-dimensional SLAM problems, the same principles apply — only the matrices grow.
+
+<BayesFilterViz />
+
+Drag the sliders to feel the trade-offs. Increasing motion noise $R$ widens the prediction so the correction trusts the measurement more. Increasing measurement noise $Q$ does the opposite — the posterior stays close to the prediction. The Kalman gain $K$ formalizes that intuition as a closed-form ratio.
+
+> But how often do we see linear systems in the real world, especially in robotics where rotations are involved?
+
+---
+
+## Extended Kalman filter (EKF)
+
+While the Kalman filter is optimal and efficient for linear-Gaussian systems, most realistic robotic problems involve **nonlinear dynamics**. Rotations in the plane are inherently nonlinear because of trig functions. The previously linear equations:
+
+$$
+x_t = A_t x_{t-1} + B_t u_t + \epsilon_t, \qquad z_t = C_t x_t + \delta_t
+$$
+
+no longer describe such systems adequately. Instead we use general nonlinear functions:
+
+$$
+x_t = g(u_t,\, x_{t-1}) + \epsilon_t, \qquad z_t = h(x_t) + \delta_t
+$$
+
+where $g$ might represent the robot's motion with angles, and $h$ a range-bearing sensor.
+
+These nonlinearities break the Gaussian assumption. We resort to **local approximations** — and that's the Extended Kalman Filter.
+
+### EKF linearization (first-order Taylor)
+
+The EKF approximates the nonlinear models around the current estimate.
+
+**Prediction linearization:**
+
+$$
+g(u_t, x_{t-1}) \approx g(u_t, \mu_{t-1}) + \frac{\partial g(u_t, \mu_{t-1})}{\partial x_{t-1}}(x_{t-1} - \mu_{t-1})
+$$
+
+Jacobian:
+
+$$
+G_t = \frac{\partial g(u_t, \mu_{t-1})}{\partial x_{t-1}}
+$$
+
+**Correction linearization:**
+
+$$
+h(x_t) \approx h(\bar\mu_t) + \frac{\partial h(\bar\mu_t)}{\partial x_t}(x_t - \bar\mu_t)
+$$
+
+Jacobian:
+
+$$
+H_t = \frac{\partial h(\bar\mu_t)}{\partial x_t}
+$$
+
+#### Linearized motion model
+
+$$
+p(x_t \mid u_t, x_{t-1}) \approx \det(2\pi R_t)^{-\tfrac{1}{2}} \exp\!\left(-\tfrac{1}{2}\big(x_t - g(u_t, \mu_{t-1}) - G_t(x_{t-1}-\mu_{t-1})\big)^T R_t^{-1}\big(x_t - g(u_t, \mu_{t-1}) - G_t(x_{t-1}-\mu_{t-1})\big)\right)
+$$
+
+#### Linearized sensor model
+
+$$
+p(z_t \mid x_t) \approx \det(2\pi Q_t)^{-\tfrac{1}{2}} \exp\!\left(-\tfrac{1}{2}\big(z_t - h(\bar\mu_t) - H_t(x_t - \bar\mu_t)\big)^T Q_t^{-1}\big(z_t - h(\bar\mu_t) - H_t(x_t - \bar\mu_t)\big)\right)
+$$
+
+### EKF algorithm
+
+<Algorithm name="Extended_Kalman_Filter" inputs="μ_{t-1}, Σ_{t-1}, u_t, z_t">
+  <ol>
+    <Step comment="Predicted mean">{'μ̄_t = g(u_t, μ_{t-1})'}</Step>
+    <Step comment="Predicted covariance">{'Σ̄_t = G_t Σ_{t-1} G_tᵀ + R_t'}</Step>
+    <Step comment="Kalman gain">K_t = Σ̄_t H_tᵀ (H_t Σ̄_t H_tᵀ + Q_t)⁻¹</Step>
+    <Step comment="Correct the mean">μ_t = μ̄_t + K_t (z_t − h(μ̄_t))</Step>
+    <Step comment="Correct the covariance">Σ_t = (I − K_t H_t) Σ̄_t</Step>
+    <Step comment="Updated belief">return μ_t, Σ_t</Step>
+  </ol>
+</Algorithm>
+
+The quality of estimation now heavily depends on the accuracy of the **local linear approximations**.
+
+> **Note.** In the EKF, $A_t$ and $C_t$ are replaced by the Jacobians $G_t$ and $H_t$, respectively.
+
+### Python example — linear vs nonlinear mapping
+
+**1. Linear map.** Push a Gaussian prior $p(x) \sim \mathcal{N}(0, 0.5)$ through $y = -0.5 x + 1$. The result is exactly Gaussian, with closed-form mean and variance.
+
+```python
+import numpy as np
+from scipy.stats import norm
+
+mu, sigma = 0.0, 0.5
+a, b = -0.5, 1.0
+mu_lin    = a * mu + b
+sigma_lin = abs(a) * sigma
+```
+
+**2. Nonlinear map.** Push the same prior through $y = \sin(x) + 0.1 \sin(5x)$. The Gaussian shape is destroyed by local curvature and high-frequency variation, so we estimate the result via Monte Carlo:
+
+```python
+def f_nl(x):
+    return np.sin(x) + 0.1 * np.sin(5 * x)
+
+N  = 100_000
+ys = f_nl(np.random.normal(mu, sigma, N))
+```
+
+<Disclosure summary={<>📝 <strong>Monte Carlo push-forward</strong></>}>
+
+Because $f(x) = \sin(x) + 0.1\sin(5x)$ is too complex to treat analytically, we approximate the resulting distribution by:
+
+1. **Sampling** many values $x \sim \mathcal{N}(\mu, \sigma)$.
+2. **Transforming** each sample as $y = f(x)$.
+3. **Aggregating** the transformed values into a histogram.
+
+This gives a data-driven approximation that captures all nonlinear distortions.
+
+</Disclosure>
+
+**3. Local linearization.** The EKF performs a first-order Taylor expansion of $f$ around a point $x_0$:
+
+$$
+f(x) \approx f(x_0) + f'(x_0)\,(x - x_0)
+$$
+
+Pushing the prior through this linear approximation yields a Gaussian centred at $f(x_0)$ with variance scaled by the local slope:
+
+```python
+x0      = 0.4
+G0      = np.cos(x0) + 0.1 * 5 * np.cos(5 * x0)   # f'(x0)
+y0      = f_nl(x0)
+sigma_ekf = abs(G0) * sigma
+```
+
+<GaussianTransformViz />
+
+Toggle between the three modes. **Linear** keeps the output Gaussian (left and right look identical up to a flip and shift). **Nonlinear** runs Monte Carlo through $y = \sin x + 0.1\sin 5x$ — the output histogram becomes skewed and even multi-modal. **EKF** picks a point $x_0$ and approximates the function by its tangent line; sweep $x_0$ along the curve and watch the approximation be good in some places and badly wrong in others — exactly where the EKF is well- or ill-behaved.
+
+### Why local linearization matters
+
+- A **linear transformation** of a Gaussian remains Gaussian — the core strength of the Kalman filter.
+- Real-world (especially robotic) systems involve **nonlinear models**; the output distribution becomes **non-Gaussian** — potentially skewed or multimodal.
+- The EKF is a compromise: it **locally linearizes** the nonlinear model around the current mean, maintaining a Gaussian belief while capturing local curvature.
+
+> **Note.** The EKF does **not** produce exact results for nonlinear systems. But when the system is **"locally close to linear"** it gives a good approximation while remaining efficient.
+
+This lays the foundation for applying the EKF to nonlinear motion and sensor models in SLAM — which we tackle in the next lesson.
+
+---
+
+## Reading material
+
+**Kalman filter and EKF**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **Chapter 3**.

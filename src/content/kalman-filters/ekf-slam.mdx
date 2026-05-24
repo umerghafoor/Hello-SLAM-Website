@@ -1,12 +1,496 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Figure } from '@/components/Figure';
+import { Algorithm, Step } from '@/components/Algorithm';
+import { EKFSlamViz } from '@/components/viz/EKFSlamViz';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/1_kalman_filters/4_ekf_slam.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/1_kalman_filters/4_ekf_slam.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/1_kalman_filters/4_ekf_slam.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## EKF-SLAM
+## Definition of the SLAM problem
 
-In **EKF-SLAM** we stack the robot pose and every landmark position into a single state
-vector and run an EKF over the joint Gaussian. The covariance matrix grows quadratically
-with the number of landmarks, which is the dominant practical limit of the approach.
+**Given:**
+
+- Controls: $u_{1:T} = \{u_1, u_2, \dots, u_T\}$
+- Observations: $z_{1:T} = \{z_1, z_2, \dots, z_T\}$
+
+**Wanted:**
+
+- A map of the environment: $m$
+- The path of the robot: $x_{0:T} = \{x_0, x_1, \dots, x_T\}$
+
+We usually aim to solve the **online SLAM** problem, focusing on estimating the **current state** of the robot and the landmarks at each timestep.
+
+## EKF for online SLAM
+
+We use the (Extended) Kalman filter as a solution to online SLAM, representing the **belief** as:
+
+$$
+p(x_t,\, m \mid z_{1:t},\, u_{1:t})
+$$
+
+The goal is to estimate the robot's pose and the landmark locations **simultaneously**.
+
+**Assumption.** Known correspondences (data associations between landmarks and observations are known).
+
+The state space for a robot moving in a 2D plane observing $N$ landmarks is:
+
+$$
+x_t = (\underbrace{x,\, y,\, \theta}_{\text{robot state}},\,
+       \underbrace{m_{1,x},\, m_{1,y}}_{\text{landmark 1}},\,
+       \dots,\,
+       \underbrace{m_{N,x},\, m_{N,y}}_{\text{landmark }N})^T
+$$
+
+### State representation
+
+With $N$ landmarks, the state vector has dimension $3 + 2N$. The belief is given by a mean $\mu$ and covariance $\Sigma$:
+
+$$
+\mu =
+\begin{pmatrix}
+ x \\ y \\ \theta \\
+ m_{1,x} \\ m_{1,y} \\
+ \vdots \\
+ m_{N,x} \\ m_{N,y}
+\end{pmatrix}
+\qquad
+\Sigma =
+\begin{pmatrix}
+\Sigma_{xx} & \Sigma_{xm} \\[6pt]
+\Sigma_{mx} & \Sigma_{mm}
+\end{pmatrix}
+$$
+
+The covariance has a key block structure: $\Sigma_{xx}$ for the robot pose, $\Sigma_{mm}$ for the landmark map, and the cross-covariance blocks $\Sigma_{xm} = \Sigma_{mx}^T$ that encode the correlations between the robot and the landmarks — which is where most of the magic happens.
+
+> **Note.** In practice we start with only the robot's state and grow the matrix dynamically as new landmarks are discovered.
+
+### Filter cycle
+
+The EKF-SLAM algorithm operates in cycles of five steps:
+
+1. **State prediction**
+2. **Observation prediction**
+3. **Measurement**
+4. **Data association**
+5. **Update (correction)**
+
+### State prediction
+
+In the **prediction step**, only the robot's pose $(x, y, \theta)$ is directly affected by the controls $u_t$; landmark positions remain unchanged. The covariance update therefore touches only the robot-related blocks, with **linear complexity** in the number of landmarks $N$.
+
+### Update step
+
+In the **update step**, both the robot's pose and landmark positions are updated based on new sensor measurements. Every observed landmark refines not only its own estimate but also — via correlations — the robot's pose and the other landmarks. Unlike the prediction step, this involves updating the entire covariance matrix, giving **quadratic complexity** in $N$.
+
+> **Note.** Quadratic complexity is intrinsic: observing one landmark refines all other estimates through the cross-covariances $\Sigma_{xm}$.
+
+---
+
+## EKF-SLAM, step by step
+
+### 1. Initialization
+
+The robot starts in its **own reference frame** and the landmarks are **unknown**. The state has dimension $2N + 3$:
+
+$$
+\mu_0 = (0, 0, 0, \dots, 0)^T
+$$
+
+$$
+\Sigma_0 =
+\begin{pmatrix}
+0 & 0 & 0 & 0 & \cdots & 0 \\
+0 & 0 & 0 & 0 & \cdots & 0 \\
+0 & 0 & 0 & 0 & \cdots & 0 \\
+0 & 0 & 0 & \infty & \cdots & 0 \\
+\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\
+0 & 0 & 0 & 0 & \cdots & \infty
+\end{pmatrix}
+$$
+
+> **Note.** In practice, landmarks are initialized as they are first observed, updating and expanding the state representation on the fly.
+
+### 2. Prediction step (motion model)
+
+Using a velocity-based model, the robot's motion in the 2D plane is:
+
+$$
+\begin{pmatrix} x' \\ y' \\ \theta' \end{pmatrix}
+=
+\begin{pmatrix} x \\ y \\ \theta \end{pmatrix}
++
+\begin{pmatrix}
+-\frac{v_t}{w_t}\sin(\theta) + \frac{v_t}{w_t}\sin(\theta + w_t\Delta t) \\[4pt]
+ \frac{v_t}{w_t}\cos(\theta) - \frac{v_t}{w_t}\cos(\theta + w_t\Delta t) \\[4pt]
+ w_t\,\Delta t
+\end{pmatrix}
+$$
+
+To map this into the full $2N+3$-dimensional state, we use an auxiliary matrix $F_x$ that selects the robot block:
+
+$$
+F_x =
+\begin{pmatrix}
+1 & 0 & 0 & 0 \cdots 0 \\
+0 & 1 & 0 & 0 \cdots 0 \\
+0 & 0 & 1 & \underbrace{0 \cdots 0}_{2N\text{ cols}}
+\end{pmatrix}
+$$
+
+The predicted mean is then $\bar\mu_t = g(u_t,\, \mu_{t-1})$ with the motion increment applied through $F_x^T$.
+
+```python
+import numpy as np
+
+# Auxiliary matrix that embeds 3x... into the full state size n
+def Fx_embed(n):
+    Fx = np.zeros((3, n))
+    Fx[:3, :3] = np.eye(3)
+    return Fx
+
+# Incremental motion model
+def motion_increment(theta, u, dt):
+    v, w = u
+    if abs(w) < 1e-9:
+        return np.array([
+            v * dt * np.cos(theta),
+            v * dt * np.sin(theta),
+            0.0,
+        ])
+    th2 = theta + w * dt
+    return np.array([
+        -(v / w) * np.sin(theta) + (v / w) * np.sin(th2),
+         (v / w) * np.cos(theta) - (v / w) * np.cos(th2),
+         w * dt,
+    ])
+```
+
+### 3. Covariance prediction
+
+The covariance update is:
+
+$$
+\bar\Sigma_t = G_t\,\Sigma_{t-1}\,G_t^T + R_t
+$$
+
+Since the motion model only affects the robot pose, the Jacobian has a block structure:
+
+$$
+G_t = \begin{pmatrix} G_t^x & 0 \\ 0 & I \end{pmatrix}
+$$
+
+- $G_t^x$ is the $3 \times 3$ Jacobian of the robot motion model.
+- $I$ is the $2N \times 2N$ identity — landmarks **remain unchanged**.
+
+**Jacobian of the motion model:**
+
+$$
+G_t^x =
+I +
+\begin{pmatrix}
+0 & 0 & -\frac{v_t}{w_t}\cos\theta + \frac{v_t}{w_t}\cos(\theta + w_t\Delta t) \\[4pt]
+0 & 0 & -\frac{v_t}{w_t}\sin\theta + \frac{v_t}{w_t}\sin(\theta + w_t\Delta t) \\[4pt]
+0 & 0 & 0
+\end{pmatrix}
+$$
+
+```python
+def G_inner(theta, u, dt):
+    """Inner 3x3 Jacobian of the motion model (excluding identity)."""
+    v, w = u
+    J = np.zeros((3, 3))
+    if abs(w) < 1e-9:
+        J[0, 2] = -v * np.sin(theta) * dt
+        J[1, 2] =  v * np.cos(theta) * dt
+        return J
+    th2 = theta + w * dt
+    J[0, 2] = -(v / w) * np.cos(theta) + (v / w) * np.cos(th2)
+    J[1, 2] = -(v / w) * np.sin(theta) + (v / w) * np.sin(th2)
+    return J
+```
+
+Expanding $G_t \Sigma_{t-1} G_t^T$ shows clearly which blocks change:
+
+$$
+\bar\Sigma_t =
+\begin{pmatrix}
+G_t^x \Sigma_{xx} (G_t^x)^T & G_t^x \Sigma_{xm} \\[4pt]
+\Sigma_{mx} (G_t^x)^T & \Sigma_{mm}
+\end{pmatrix}
++ R_t
+$$
+
+- $\Sigma_{xx}$ is updated by $G_t^x$.
+- $\Sigma_{xm}, \Sigma_{mx}$ (robot ↔ landmark correlations) are updated.
+- $\Sigma_{mm}$ (landmark–landmark) is unchanged.
+
+> **Note.** In practice, it is inefficient to update the entire covariance as one single block. $\Sigma_{mm}$ is the largest part and remains unchanged during prediction — exploit the sparse structure and update only the relevant sub-blocks.
+
+Bringing it together:
+
+```python
+def wrap_angle(a):
+    """Wrap to [-pi, pi)."""
+    return (a + np.pi) % (2 * np.pi) - np.pi
+
+def EKF_SLAM_Prediction(mu_prev, Sigma_prev, u_t, R_x, dt):
+    """One step of EKF-SLAM prediction (mean + covariance)."""
+    n = mu_prev.size
+    Fx = Fx_embed(n)
+
+    # Mean
+    mu_bar = mu_prev.copy()
+    mu_bar[:3] = mu_prev[:3] + motion_increment(mu_prev[2], u_t, dt)
+    mu_bar[2] = wrap_angle(mu_bar[2])
+
+    # Covariance
+    Gt = np.eye(n) + Fx.T @ G_inner(mu_prev[2], u_t, dt) @ Fx
+    Rt = Fx.T @ R_x @ Fx
+    Sigma_bar = Gt @ Sigma_prev @ Gt.T + Rt
+
+    return mu_bar, Sigma_bar
+```
+
+---
+
+## Correction step
+
+We incorporate sensor measurements to **refine the current belief** about the robot's pose and landmark positions. Assumptions:
+
+- **Known data association** — each observation is matched to its landmark.
+- The measurement at time $t$ observes landmark $j$, with $c_t^i = j$.
+- Landmarks are initialized when observed for the first time.
+
+### 1. Range-bearing observation
+
+Each observation $z_t^i$ at time $t$ consists of a range and bearing:
+
+$$
+z_t^i = (r_t^i,\, \varphi_t^i)^T
+$$
+
+If a landmark $j$ has **not previously been observed**, initialize it from the current robot pose and the measurement:
+
+$$
+\begin{pmatrix} \bar\mu_{j,x} \\ \bar\mu_{j,y} \end{pmatrix}
+=
+\begin{pmatrix} \bar\mu_{t,x} \\ \bar\mu_{t,y} \end{pmatrix}
++
+\begin{pmatrix}
+r_t^i \cos(\varphi_t^i + \bar\mu_{t,\theta}) \\[4pt]
+r_t^i \sin(\varphi_t^i + \bar\mu_{t,\theta})
+\end{pmatrix}
+$$
+
+```python
+def init_landmark_from_observation(mu, seen_mask, j, z):
+    """Initialize landmark j from current robot pose and observation z = [r, phi]."""
+    if not seen_mask[j]:
+        r, phi = z
+        mu[3 + 2*j]     = mu[0] + r * np.cos(phi + mu[2])
+        mu[3 + 2*j + 1] = mu[1] + r * np.sin(phi + mu[2])
+        seen_mask[j] = True
+    return mu, seen_mask
+```
+
+### 2. Expected observation
+
+Compute the **expected observation** from the current estimate:
+
+$$
+\delta = \begin{pmatrix} \delta_x \\ \delta_y \end{pmatrix}
+       = \begin{pmatrix} \bar\mu_{j,x} - \bar\mu_{t,x} \\ \bar\mu_{j,y} - \bar\mu_{t,y} \end{pmatrix}
+$$
+
+$$
+q = \delta^T \delta, \qquad
+\hat z_t^i = \begin{pmatrix} \sqrt{q} \\ \mathrm{atan2}(\delta_y, \delta_x) - \bar\mu_{t,\theta} \end{pmatrix} = h(\bar\mu_t)
+$$
+
+```python
+def expected_observation(mu, j):
+    """Compute predicted range-bearing to landmark j."""
+    x, y, th = mu[:3]
+    mx, my   = mu[3 + 2*j : 3 + 2*j + 2]
+    dx, dy   = mx - x, my - y
+    q        = dx*dx + dy*dy
+    r        = np.sqrt(max(q, 1e-12))
+    phi      = wrap_angle(np.arctan2(dy, dx) - th)
+    zhat     = np.array([r, phi])
+    return zhat, np.array([dx, dy]), q
+```
+
+### 3. Jacobian of the observation model
+
+In a low-dimensional space focusing only on $(x, y, \theta, m_{j,x}, m_{j,y})$ (a $2 \times 5$ matrix):
+
+$$
+{}^{\text{low}}H_t^i =
+\frac{1}{q}
+\begin{pmatrix}
+-\sqrt{q}\,\delta_x & -\sqrt{q}\,\delta_y & 0 & \sqrt{q}\,\delta_x & \sqrt{q}\,\delta_y \\[4pt]
+\delta_y & -\delta_x & -q & -\delta_y & \delta_x
+\end{pmatrix}
+$$
+
+Map it to the full high-dimensional state via the auxiliary $F_{x,j}$:
+
+$$
+H_t^i = {}^{\text{low}}H_t^i \cdot F_{x,j}
+$$
+
+where $F_{x,j}$ selects the robot block and the landmark-$j$ block from the full state.
+
+```python
+def H_low(mu, j):
+    zhat, delta, q = expected_observation(mu, j)
+    dx, dy = delta
+    r      = zhat[0]
+    q      = max(q, 1e-12)
+    H_small = (1.0 / q) * np.array([
+        [-r * dx, -r * dy,   0.0,  r * dx,  r * dy],
+        [    dy,     -dx,    -q,     -dy,      dx],
+    ])
+    return H_small, zhat
+
+def Fxj_embed(n, j):
+    Fxj = np.zeros((5, n))
+    Fxj[:3, :3] = np.eye(3)
+    Fxj[3, 3 + 2*j]     = 1.0
+    Fxj[4, 3 + 2*j + 1] = 1.0
+    return Fxj
+
+def H_full(mu, j):
+    n = mu.size
+    H_small, zhat = H_low(mu, j)
+    Fxj = Fxj_embed(n, j)
+    return H_small @ Fxj, zhat
+```
+
+Putting prediction + correction together:
+
+```python
+def innovation(z, zhat):
+    return np.array([z[0] - zhat[0], wrap_angle(z[1] - zhat[1])])
+
+def EKF_SLAM_Correction(mu_bar, Sigma_bar, z_list, c_list, Q, seen_mask):
+    mu, Sigma = mu_bar.copy(), Sigma_bar.copy()
+    I = np.eye(mu.size)
+
+    for z, j in zip(z_list, c_list):
+        mu, seen_mask = init_landmark_from_observation(mu, seen_mask, j, z)
+        H_i, zhat     = H_full(mu, j)
+
+        S = H_i @ Sigma @ H_i.T + Q          # innovation covariance
+        v = innovation(z, zhat)              # innovation
+        K = Sigma @ H_i.T @ np.linalg.inv(S) # Kalman gain
+
+        mu    = mu + K @ v
+        mu[2] = wrap_angle(mu[2])
+        Sigma = (I - K @ H_i) @ Sigma
+
+    return mu, Sigma, seen_mask
+```
+
+The same circular-trajectory example from the prediction section, now with the correction step enabled, shows landmarks getting locked in and the pose covariance shrinking when landmarks are revisited.
+
+<EKFSlamViz />
+
+The two panels run the same nominal circular trajectory side by side. **Left:** prediction only — the red position estimate drifts off the dashed ground-truth circle, and the uncertainty disk grows monotonically with every step. **Right:** with range-bearing observations, the EKF correction pulls the estimate back onto the ground-truth path and the uncertainty disk shrinks each time landmarks are observed. The × marks show the estimated landmark positions converging on the ★ ground-truth landmarks as more observations accumulate.
+
+---
+
+## EKF-SLAM algorithm (summary)
+
+<Algorithm name="EKF_SLAM_Prediction" inputs="μ_{t-1}, Σ_{t-1}, u_t, R_t">
+  <ol>
+    <Step comment="low-to-high mapping">define F_x (3×n)</Step>
+    <Step comment="predict the mean">{'μ̄_t = μ_{t-1} + F_xᵀ · g_velocity(θ, v, w, Δt)'}</Step>
+    <Step comment="compute the Jacobian">G_t = I + F_xᵀ · J_velocity(θ, v, w, Δt) · F_x</Step>
+    <Step comment="predict the covariance">{'Σ̄_t = G_t Σ_{t-1} G_tᵀ + F_xᵀ R_tˣ F_x'}</Step>
+    <Step>return μ̄_t, Σ̄_t</Step>
+  </ol>
+</Algorithm>
+
+<Algorithm name="EKF_SLAM_Correction" inputs="μ̄_t, Σ̄_t, z_t, c_t, σ_t">
+  <ol>
+    <Step comment="sensor uncertainty">Q_t = diag(σ_r², σ_φ²)</Step>
+    <Step>for each observed feature z_t^i = (r, φ): with j = c_t^i</Step>
+    <Step comment="initialize if first seen">{'if landmark j is new: μ̄_{j,xy} = robot_xy + r · (cos(φ+θ), sin(φ+θ))'}</Step>
+    <Step comment="distance">δ = μ̄_j − μ̄_t,xy</Step>
+    <Step comment="squared range">q = δᵀδ</Step>
+    <Step comment="predicted observation">ẑ = (√q, atan2(δ_y, δ_x) − μ̄_t,θ)</Step>
+    <Step comment="select robot + landmark j">{'define F_{x,j} (5×n)'}</Step>
+    <Step comment="observation Jacobian">{'H_t^i = (1/q) · M(δ) · F_{x,j}'}</Step>
+    <Step comment="Kalman gain">K_t^i = Σ̄_t H_t^iᵀ (H_t^i Σ̄_t H_t^iᵀ + Q_t)⁻¹</Step>
+    <Step comment="update mean">μ̄_t = μ̄_t + K_t^i (z_t^i − ẑ_t^i)</Step>
+    <Step comment="update covariance">Σ̄_t = (I − K_t^i H_t^i) Σ̄_t</Step>
+    <Step>μ_t = μ̄_t, Σ_t = Σ̄_t; return μ_t, Σ_t</Step>
+  </ol>
+</Algorithm>
+
+### Implementation notes
+
+When implementing the full EKF-SLAM algorithm:
+
+- **Batch updates.** Always integrate all measurements from a single time step into **one complete update cycle**.
+- **Angle normalization.** Ensure angular components are wrapped to remain within $[-\pi, \pi]$.
+- **Jacobian efficiency.** Avoid explicitly forming the $F_{x,j}$ matrices unless necessary — use indexing operations for efficiency.
+
+The original notebook extends the Pygame motion-model demo with the EKF correction step. Some practical details:
+
+1. **Landmark density.** Since every LiDAR point is treated as a potential landmark, the state vector grows quickly. The demo discretizes the 2D LiDAR plane into pixel blocks, keeping only one landmark per block.
+2. **Selective updates.** Only the nearest subset of landmarks is updated at each step — keeping things efficient while still correcting the map consistently as landmarks are revisited.
+3. **Consistency.** The reconstructed map becomes noticeably more stable than the pure motion-model demo. Depending on the neighbour count, you can directly see how nearby landmarks are corrected and reinforced over multiple observations.
+
+<Figure
+  src="/figures/ekf_demo.gif"
+  alt="EKF-SLAM Pygame demo"
+  caption="EKF-SLAM Pygame demo (from the original notebook): ground truth on the left, EKF estimate with corrected landmarks on the right."
+  width={720}
+  height={400}
+/>
+
+---
+
+## What's next?
+
+While the EKF improves upon the standard Kalman filter by handling nonlinear models, it still has limitations. A natural alternative is the **Unscented Kalman Filter (UKF)**.
+
+**KF vs EKF**
+
+- EKF is an extension of the KF designed to handle nonlinearities.
+- It performs **local linearizations** around the current estimate.
+- Works well in practice for **moderate nonlinearities** and uncertainty.
+
+### Unscented Kalman Filter (UKF)
+
+**Motivation**
+
+- KF requires strictly **linear** models.
+- EKF approximates nonlinear functions with a **Taylor expansion**.
+
+The UKF avoids explicit Jacobians. Instead it uses the **Unscented Transform**: it computes a set of carefully chosen **sigma points**, propagates them through the nonlinear motion and measurement models, and reconstructs a Gaussian from the transformed points.
+
+**UKF vs EKF**
+
+- Produces the **same results as EKF** for linear models.
+- Provides a **better approximation** for nonlinear models.
+- **No Jacobians** required.
+- Computational complexity is **similar**, though UKF can be slightly slower.
+
+---
+
+## Reading material
+
+**EKF-SLAM**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **Chapter 10**.
+
+**Unscented Transform and UKF**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **§3.4**.

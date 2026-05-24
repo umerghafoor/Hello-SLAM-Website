@@ -1,21 +1,206 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { BayesFilterViz } from '@/components/viz/BayesFilterViz';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/1_kalman_filters/1_bayes.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/1_kalman_filters/1_bayes.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/1_kalman_filters/1_bayes.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## Recursive Bayes Filter
-
-The Recursive Bayes Filter is the probabilistic foundation under both the Kalman and
-particle filters. It maintains a **belief** over the state $x_t$ given all measurements
-and controls up to time $t$:
+The Recursive Bayes Filter provides a framework for recursive state estimation. It estimates the **state** $x$ of a system given **observations** $z$ and **controls** $u$:
 
 $$
-\mathrm{bel}(x_t) \;=\; p(x_t \mid z_{1:t},\, u_{1:t}).
+p(x \mid z, u)
 $$
 
-We update this belief in two steps each tick:
+## Definition of the belief
 
-1. **Prediction** — push the belief forward with the motion model.
-2. **Correction** — reweight by the likelihood of the new measurement.
+The **belief** is the **posterior** distribution of the current state $x_t$ given all observations $z_{1:t}$ and control inputs $u_{1:t}$:
+
+$$
+\mathrm{bel}(x_t) = p(x_t \mid z_{1:t},\, u_{1:t}) \quad\quad (1)
+$$
+
+To update the belief based on new measurements and controls we apply **Bayes' rule**.
+
+<Disclosure summary={<>📝 <strong>What does the state vector contain?</strong></>}>
+
+The composition of the state vector $x$ depends on the specific estimation problem we want to solve:
+
+- **Localization only.** For 2D localization, the state vector includes the robot's position and orientation:
+  $$
+  x = [x,\, y,\, \theta]^T
+  $$
+  For 3D localization, the state extends to a 3D position and orientation:
+  $$
+  x = [x,\, y,\, z,\, \phi,\, \theta,\, \psi]^T
+  $$
+- **Mapping only.** When the robot's pose is known and we want to estimate a map of $n$ landmarks (in 2D):
+  $$
+  x = [l_{1,x},\, l_{1,y},\, l_{2,x},\, l_{2,y},\, \dots,\, l_{n,x},\, l_{n,y}]^T
+  $$
+- **SLAM.** Robot pose and map are estimated jointly. For 2D SLAM with $n$ landmarks:
+  $$
+  x = [x,\, y,\, \theta,\, l_{1,x},\, l_{1,y},\, \dots,\, l_{n,x},\, l_{n,y}]^T
+  $$
+
+</Disclosure>
+
+## Mathematical derivation
+
+Using Bayes' rule, we expand the belief in Eq. (1) as:
+
+$$
+\begin{aligned}
+\mathrm{bel}(x_t)
+&= p(x_t \mid z_{1:t},\, u_{1:t}) \\
+&= \eta \cdot \underbrace{p(z_t \mid x_t,\, z_{1:t-1},\, u_{1:t})}_{\text{likelihood}}
+   \cdot \underbrace{p(x_t \mid z_{1:t-1},\, u_{1:t})}_{\text{prior}}
+   \quad\quad (2)
+\end{aligned}
+$$
+
+where:
+
+- $\eta = \dfrac{1}{p(z_t \mid z_{1:t-1},\, u_{1:t})}$ is a constant independent of the current state $x_t$. It is the **normalizer** (also called the **evidence**) for the new observation $z_t$, ensuring the posterior integrates to 1.
+- $p(x_t \mid z_{1:t-1},\, u_{1:t})$ is the **prior** — our predicted belief about the current state before incorporating the latest measurement. It comes from the **motion model**.
+- $p(z_t \mid x_t,\, z_{1:t-1},\, u_{1:t})$ is the **likelihood**, given by the **observation model**.
+
+<Disclosure summary={<>📝 <strong>How did we apply Bayes' rule?</strong></>}>
+
+Bayes' rule is:
+
+$$
+p(A \mid B) = \frac{p(B \mid A)\, p(A)}{p(B)}
+$$
+
+The control sequence $u_{1:t}$ and previous observations $z_{1:t-1}$ are *known* (fixed events). The conditional form we need is:
+
+$$
+p(A \mid B,\, C) = \frac{p(B \mid A,\, C)\, p(A \mid C)}{p(B \mid C)}
+$$
+
+Setting $A = x_t$, $B = z_t$, $C = z_{1:t-1},\, u_{1:t}$ gives Eq. (2).
+
+</Disclosure>
+
+Continuing from Eq. (2), we introduce the **Markov assumption**:
+
+> The current measurement $z_t$ is conditionally independent of past measurements and control inputs given the current state $x_t$.
+
+This simplifies to:
+
+$$
+p(z_t \mid x_t,\, z_{1:t-1},\, u_{1:t}) = p(z_t \mid x_t)
+$$
+
+So:
+
+$$
+\mathrm{bel}(x_t) = \eta \cdot p(z_t \mid x_t) \cdot p(x_t \mid z_{1:t-1},\, u_{1:t}) \quad\quad (3)
+$$
+
+Applying the **law of total probability** to Eq. (3):
+
+$$
+\mathrm{bel}(x_t)
+= \eta \cdot p(z_t \mid x_t)
+\cdot \int_{x_{t-1}} p(x_t \mid x_{t-1},\, z_{1:t-1},\, u_{1:t})\,
+                    p(x_{t-1} \mid z_{1:t-1},\, u_{1:t})\, dx_{t-1}
+\quad\quad (4)
+$$
+
+<Disclosure summary={<>📝 <strong>Law of total probability (reminder)</strong></>}>
+
+$$
+p(A) = \int_B p(A \mid B)\, p(B)\, dB
+$$
+
+The probability of an event $A$ is obtained by integrating the conditional probability of $A$ given $B$ weighted by the probability of $B$, over all possible $B$.
+
+</Disclosure>
+
+We now apply two additional **Markov assumptions**:
+
+1. **State transition assumption:**
+   $$
+   p(x_t \mid x_{t-1},\, z_{1:t-1},\, u_{1:t}) = p(x_t \mid x_{t-1},\, u_t)
+   $$
+   The current state depends only on the previous state and the latest control input.
+2. **Control independence assumption:**
+   $$
+   p(x_{t-1} \mid z_{1:t-1},\, u_{1:t}) = p(x_{t-1} \mid z_{1:t-1},\, u_{1:t-1})
+   $$
+   The state at time $t-1$ does not depend on the future control $u_t$.
+
+With these, the belief simplifies to:
+
+$$
+\mathrm{bel}(x_t)
+= \eta \cdot p(z_t \mid x_t)
+\cdot \int_{x_{t-1}} p(x_t \mid x_{t-1},\, u_t)\,
+                    p(x_{t-1} \mid z_{1:t-1},\, u_{1:t-1})\, dx_{t-1}
+\quad\quad (5)
+$$
+
+The last factor $p(x_{t-1} \mid z_{1:t-1},\, u_{1:t-1})$ is exactly the **previous belief** $\mathrm{bel}(x_{t-1})$ — and that's the recursion:
+
+$$
+\boxed{\;
+\mathrm{bel}(x_t)
+= \eta \cdot p(z_t \mid x_t)
+\cdot \int_{x_{t-1}} p(x_t \mid x_{t-1},\, u_t)\, \mathrm{bel}(x_{t-1})\, dx_{t-1}
+\;}\quad (6)
+$$
+
+## Prediction and correction
+
+The Recursive Bayes Filter can be viewed as a **two-step recursive process**.
+
+### Prediction step (motion model)
+
+Estimate the new belief $\mathrm{bel}(\bar{x}_t)$ from the previous belief and the control input:
+
+$$
+\mathrm{bel}(\bar{x}_t)
+= \int p(x_t \mid x_{t-1},\, u_t)\, \mathrm{bel}(x_{t-1})\, dx_{t-1}
+$$
+
+- Prediction based on control commands (motion).
+- $\mathrm{bel}(\bar{x}_t)$ is the predicted belief **before** incorporating sensor measurements.
+
+### Correction step (observation model)
+
+Incorporate the latest sensor measurement $z_t$ to refine the prediction:
+
+$$
+\mathrm{bel}(x_t) = \eta \cdot p(z_t \mid x_t) \cdot \mathrm{bel}(\bar{x}_t)
+$$
+
+- Adjusts the prediction using actual sensor data.
+
+<BayesFilterViz />
+
+The animation shows the full cycle on a 1-D state: a Gaussian **prior** is pushed forward by the motion model (covariance grows, mean shifts), the **measurement** likelihood arrives, and the **correction** step fuses them into a sharper posterior. The Kalman gain $K$ controls how strongly the measurement pulls the estimate — large $K$ when the prediction is uncertain, small $K$ when the measurement is noisy.
+
+## Summary
+
+- The **Bayes filter** is a general probabilistic framework for recursive state estimation. Two essential steps:
+  - **Prediction** — estimate the current state from a motion model and previous state.
+  - **Correction** — refine the prediction using the latest sensor observations.
+- The Bayes filter itself does **not** specify how to compute the integrals or which distributions to use.
+- Practical realizations of the Bayes filter include:
+  - **Kalman Filter (KF)** — linear systems with Gaussian noise.
+  - **Extended Kalman Filter (EKF)** — nonlinear systems using local linear approximations.
+  - **Particle Filter (PF)** — nonlinear systems with non-Gaussian / multimodal beliefs.
+
+Each filter is a specific solution tailored to the system dynamics, sensor models, and noise properties.
+
+---
+
+## Reading material
+
+**On the Bayes filter**
+- Thrun, Burgard, Fox. *Probabilistic Robotics*, **Chapter 2**.

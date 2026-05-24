@@ -1,17 +1,234 @@
 import { Callout } from '@/components/Callout';
+import { Disclosure } from '@/components/Disclosure';
+import { Algorithm, Step } from '@/components/Algorithm';
+import { GaussNewton1DViz } from '@/components/viz/GaussNewton1DViz';
 
-<Callout variant="todo">
-  Full lesson body coming soon — ported from
-  <code> notebooks/3_graph_based/1_least_squares.ipynb</code>.
+<Callout variant="tip" title="Source">
+  Ported from
+  [`notebooks/3_graph_based/1_least_squares.ipynb`](https://github.com/nstathou/hello-slam/blob/main/notebooks/3_graph_based/1_least_squares.ipynb)
+  of the original [hello-slam](https://github.com/nstathou/hello-slam) course by
+  **Nikolaos Stathoulopoulos**.
 </Callout>
 
-## Nonlinear Least Squares
+The **least-squares** method is one of the cornerstones of modern estimation and optimization in robotics. It provides a simple yet powerful way to find the state that best fits a set of noisy measurements.
 
-Modern SLAM back-ends frame the problem as minimizing a sum of squared residuals:
+Least squares tries to **minimize the difference between what we measure and what we expect to measure**.
+
+- Originally used decades ago, but computationally too expensive for large systems.
+- With the rise of efficient solvers (gtsam, g2o, iSAM2) and sparse linear algebra in the 2010s, it made a strong comeback in SLAM and computer vision.
+- Today it is the foundation of most **graph-based SLAM**, **bundle adjustment**, and **trajectory optimization** techniques.
+
+## Least squares in general
+
+The least-squares method is designed to compute a solution for an **overdetermined** system (*"more equations than unknowns"*).
+
+**Goal.** Minimize the **sum of squared errors** across the equations. Standard approach for a large class of problems — for instance, in regression we fit a line or curve that best matches observed data.
+
+### Problem definition
+
+Given a system described by a set of $n$ observation functions $\{f_i(\mathbf{x})\}_{i=1:n}$:
+
+- $\mathbf{x}$ is the **state vector**,
+- $\mathbf{z}_i$ is a **measurement** of the state $\mathbf{x}$,
+- $\hat{\mathbf{z}}_i = f_i(\mathbf{x})$ is a function which maps $\mathbf{x}$ to a **predicted measurement**.
+
+**Given** $n$ noisy measurements $\mathbf{z}_{1:n}$, **estimate the state** $\mathbf{x}$ that best explains them.
+
+## Error function
+
+The **error** $\mathbf{e}_i$ is typically the difference between the predicted and actual measurement:
 
 $$
-x^\star = \arg\min_x \sum_i \lVert e_i(x) \rVert^2_{\Omega_i}.
+\mathbf{e}_i(\mathbf{x}) = \mathbf{z}_i - f_i(\mathbf{x})
 $$
 
-We’ll cover Gauss–Newton, Levenberg–Marquardt, and the structure of the normal equations
-$H \Delta x = -b$.
+Assume the error has **zero mean** and is **normally distributed** — a Gaussian with **information matrix** $\mathbf{\Omega}_i$. The **squared error** of a measurement depends only on the state and is a scalar:
+
+$$
+e_i(\mathbf{x}) = \mathbf{e}_i(\mathbf{x})^{T}\, \mathbf{\Omega}_i\, \mathbf{e}_i(\mathbf{x})
+$$
+
+## Find the minimum
+
+Find the state $\mathbf{x}^\star$ that minimizes the error over all measurements:
+
+$$
+\begin{aligned}
+\mathbf{x}^\star &= \arg\min_{\mathbf{x}} F(\mathbf{x}) \\
+                 &= \arg\min_{\mathbf{x}} \sum_i e_i(\mathbf{x}) \\
+                 &= \arg\min_{\mathbf{x}} \sum_i \mathbf{e}_i(\mathbf{x})^T\, \mathbf{\Omega}_i\, \mathbf{e}_i(\mathbf{x}).
+\end{aligned}
+$$
+
+where $\mathbf{\Omega}_i$ encodes our **uncertainty** in each measurement.
+
+A general solution would be to derive the global error function analytically and find its nulls — but in general this is complex with no closed-form solution.
+
+↳ Use **numerical approaches**.
+
+### Assumptions
+
+- A **good initial guess** is available.
+- The error functions are **"smooth"** in the neighbourhood of the (hopefully) global minima.
+
+↳ Then we can solve by **iterative local linearization**.
+
+## Solve via iterative local linearization
+
+1. **Linearize** the error terms around the current solution.
+2. Compute the **first derivative** of the squared error function.
+3. Set it to **zero** and solve the resulting **linear system**.
+4. Obtain the **new state** (hopefully closer to the minimum).
+5. **Iterate.**
+
+### Linearize the error function
+
+Approximate the error functions around an initial guess $\mathbf{x}$ via a Taylor expansion:
+
+$$
+\mathbf{e}_i(\mathbf{x} + \Delta\mathbf{x}) \approx \mathbf{e}_i + \mathbf{J}_i(\mathbf{x})\, \Delta\mathbf{x}
+$$
+
+where $\mathbf{J}_i$ is the Jacobian of $\mathbf{e}_i$ w.r.t. $\mathbf{x}$.
+
+### Squared error
+
+With the linearization, fix $\mathbf{x}$ and minimize in the increments $\Delta\mathbf{x}$. Substituting:
+
+$$
+\begin{aligned}
+e_i(\mathbf{x} + \Delta\mathbf{x})
+&\approx (\mathbf{e}_i + \mathbf{J}_i\, \Delta\mathbf{x})^T\, \mathbf{\Omega}_i\, (\mathbf{e}_i + \mathbf{J}_i\, \Delta\mathbf{x}) \\
+&= \underbrace{\mathbf{e}_i^T\, \mathbf{\Omega}_i\, \mathbf{e}_i}_{c_i}
+  + 2\, \underbrace{\mathbf{e}_i^T\, \mathbf{\Omega}_i\, \mathbf{J}_i}_{\mathbf{b}_i^T}\, \Delta\mathbf{x}
+  + \Delta\mathbf{x}^T\, \underbrace{\mathbf{J}_i^T\, \mathbf{\Omega}_i\, \mathbf{J}_i}_{\mathbf{H}_i}\, \Delta\mathbf{x}
+\end{aligned}
+$$
+
+So
+
+$$
+e_i(\mathbf{x} + \Delta\mathbf{x}) \approx c_i + 2\, \mathbf{b}_i^T\, \Delta\mathbf{x} + \Delta\mathbf{x}^T\, \mathbf{H}_i\, \Delta\mathbf{x}
+$$
+
+### Global error
+
+The global error is the sum of squared error terms — and the approximation in the neighbourhood of the current $\mathbf{x}$ is:
+
+$$
+\begin{aligned}
+F(\mathbf{x} + \Delta\mathbf{x})
+&\approx \sum_i \Big( c_i + 2\, \mathbf{b}_i^T\, \Delta\mathbf{x} + \Delta\mathbf{x}^T\, \mathbf{H}_i\, \Delta\mathbf{x} \Big) \\
+&= c + 2\, \mathbf{b}^T\, \Delta\mathbf{x} + \Delta\mathbf{x}^T\, \mathbf{H}\, \Delta\mathbf{x}
+\end{aligned}
+$$
+
+with
+
+$$
+\mathbf{b}^T = \sum_i \mathbf{e}_i^T\, \mathbf{\Omega}_i\, \mathbf{J}_i,
+\qquad
+\mathbf{H} = \sum_i \mathbf{J}_i^T\, \mathbf{\Omega}_i\, \mathbf{J}_i.
+$$
+
+## Quadratic-form minimization
+
+The global error is now a **quadratic form** in $\Delta\mathbf{x}$:
+
+$$
+F(\mathbf{x} + \Delta\mathbf{x}) \approx c + 2\mathbf{b}^T\, \Delta\mathbf{x} + \Delta\mathbf{x}^T\, \mathbf{H}\, \Delta\mathbf{x}
+$$
+
+The approximate derivative w.r.t. $\Delta\mathbf{x}$ is
+
+$$
+\frac{\partial F(\mathbf{x} + \Delta\mathbf{x})}{\partial \Delta\mathbf{x}} \approx 2\mathbf{b} + 2\mathbf{H}\, \Delta\mathbf{x}.
+$$
+
+Setting it to zero (minimum condition):
+
+$$
+\mathbf{H}\, \Delta\mathbf{x} = -\mathbf{b} \quad\Rightarrow\quad \Delta\mathbf{x}^\star = -\mathbf{H}^{-1}\mathbf{b}
+$$
+
+## Gauss-Newton solution
+
+<Algorithm name="Gauss_Newton" inputs="x">
+  <ol>
+    <Step comment="Linearize">{'eᵢ(x + Δx) ≈ eᵢ(x) + Jᵢ Δx'}</Step>
+    <Step comment="Build linear system">{'b = Σ eᵢᵀ Ωᵢ Jᵢ , H = Σ Jᵢᵀ Ωᵢ Jᵢ'}</Step>
+    <Step comment="Solve">{'H Δx⋆ = −b   ⇒  Δx⋆ = −H⁻¹ b'}</Step>
+    <Step comment="Update state">{'x ← x + Δx⋆'}</Step>
+    <Step comment="Repeat until convergence">{'iterate'}</Step>
+  </ol>
+</Algorithm>
+
+<GaussNewton1DViz />
+
+The viz walks through Gauss-Newton on a tiny example: fit $y = a + b\,x$ to noisy data. From a bad initial guess (the early light-coloured lines), each iteration computes $\mathbf{H}\, \Delta\mathbf{x} = -\mathbf{b}$, updates $(a, b)$, and lands on the next line. After a handful of iterations the current line (solid) settles near the dashed ground truth.
+
+### Gauss-Newton summary
+
+- Method to **minimize a sum of squared errors**.
+- Start with an initial guess.
+- **Linearize** the individual error functions.
+- This yields a **quadratic form**.
+- Obtain a **linear system** by setting its derivative to zero.
+- Solving the linear system gives a **state update**.
+- **Iterate.**
+
+---
+
+## Relation to probabilistic state estimation
+
+So far, we've minimized an error function. *How does this relate to state estimation in the probabilistic sense?*
+
+### General state estimation
+
+Using Bayes' rule, independence, and the Markov assumption:
+
+$$
+p(x_{0:t} \mid z_{1:t}, u_{1:t}) \propto p(x_0) \prod_{t} p(x_t \mid x_{t-1}, u_t)\, p(z_t \mid x_t).
+$$
+
+Taking the **log-likelihood**:
+
+$$
+\log p(x_{0:t} \mid z_{1:t}, u_{1:t}) = \text{const.} + \log p(x_0) + \sum_t \big[\log p(x_t \mid x_{t-1}, u_t) + \log p(z_t \mid x_t)\big].
+$$
+
+For a Gaussian $\mathcal{N}(x; \mu, \Sigma)$:
+
+$$
+\log \mathcal{N}(x; \mu, \Sigma)
+= \text{const.} - \tfrac{1}{2}\, \underbrace{(x-\mu)^T}_{\mathbf{e}^T(x)}\, \underbrace{\Sigma^{-1}}_{\mathbf{\Omega}}\, \underbrace{(x-\mu)}_{\mathbf{e}(x)}
+$$
+
+Up to a constant, the log-likelihood is **the same as the error functions we used before**:
+
+$$
+\log p(x_{0:t} \mid z_{1:t}, u_{1:t}) = \text{const.} - \tfrac{1}{2}\, e_p(x) - \tfrac{1}{2} \sum_t \big[ e_{u_t}(x) + e_{z_t}(x) \big]
+$$
+
+where $e_p$ is the **prior**, $e_{u_t}$ is the **motion (odometry) error**, and $e_{z_t}$ is the **measurement error**.
+
+**Maximizing** the log-likelihood is equivalent to:
+
+$$
+\arg\max_x \log p(x_{0:t} \mid z_{1:t}, u_{1:t})
+\equiv
+\arg\min_x \Big( e_p(x) + \sum_t [ e_{u_t}(x) + e_{z_t}(x) ] \Big).
+$$
+
+**Takeaway:**
+
+- **Least squares** (with Gaussian assumptions) is **equivalent to Maximum A Posteriori (MAP) estimation**.
+- **Minimizing the sum of weighted squared residuals** corresponds to **maximizing the posterior probability**.
+
+## Summary
+
+- Technique to **minimize squared error** functions.
+- Gauss-Newton is an **iterative** approach for non-linear problems.
+- Uses linearization (approximation).
+- Equivalent to **maximizing the log-likelihood** of independent Gaussians.
+- Popular method in many disciplines.

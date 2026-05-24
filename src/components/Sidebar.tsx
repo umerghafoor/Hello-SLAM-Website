@@ -2,48 +2,116 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { chapters } from '@/lib/chapters';
+import { useSidebar } from './SidebarContext';
 
 export function Sidebar() {
+  const { collapsed, mobileOpen, closeMobile } = useSidebar();
   const pathname = usePathname();
 
-  return (
-    <aside className="hidden md:block w-72 shrink-0 border-r border-md-outline-variant bg-md-surface-container-low">
-      <div className="sticky top-0 max-h-screen overflow-y-auto px-4 py-6">
-        <Link
-          href="/"
-          className="block rounded-md-lg px-3 py-2 no-underline transition-colors hover:bg-md-surface-container"
-        >
-          <div className="text-[11px] uppercase tracking-[0.18em] text-md-on-surface-variant">
-            Course
-          </div>
-          <div className="mt-0.5 font-display text-xl font-medium text-md-on-surface">
-            Hello <span className="text-md-primary">SLAM</span>
-          </div>
-        </Link>
+  // Close mobile drawer on navigation
+  useEffect(() => {
+    closeMobile();
+  }, [pathname, closeMobile]);
 
-        <nav className="mt-6 space-y-5">
-          {chapters.map((chapter) => {
-            const chapterHref = `/chapters/${chapter.slug}`;
-            const inChapter = pathname?.startsWith(chapterHref);
-            return (
-              <div key={chapter.slug}>
-                <Link
-                  href={chapterHref}
-                  className={`block rounded-md-md px-3 py-2 no-underline transition-colors ${
+  return (
+    <>
+      {/* Mobile scrim */}
+      <div
+        aria-hidden="true"
+        onClick={closeMobile}
+        className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 md:hidden ${
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      {/* Desktop rail / drawer (md+) */}
+      <aside
+        aria-label="Course navigation"
+        className={`hidden shrink-0 border-r border-md-outline-variant bg-md-surface-container-low transition-[width] duration-300 ease-out md:block ${
+          collapsed ? 'w-[76px]' : 'w-72'
+        }`}
+      >
+        <SidebarInner collapsed={collapsed} pathname={pathname} />
+      </aside>
+
+      {/* Mobile drawer */}
+      <aside
+        aria-label="Course navigation"
+        aria-hidden={!mobileOpen}
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-md-outline-variant bg-md-surface-container-low shadow-md-3 transition-transform duration-300 ease-out md:hidden ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-variant">
+          <span className="font-display text-base font-medium text-md-on-surface">
+            Navigation
+          </span>
+          <button
+            type="button"
+            onClick={closeMobile}
+            aria-label="Close navigation"
+            className="md-icon-btn"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+              <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z" />
+            </svg>
+          </button>
+        </div>
+        <SidebarInner collapsed={false} pathname={pathname} />
+      </aside>
+    </>
+  );
+}
+
+function SidebarInner({
+  collapsed,
+  pathname,
+}: {
+  collapsed: boolean;
+  pathname: string | null;
+}) {
+  return (
+    <div className="sticky top-0 max-h-screen overflow-y-auto px-3 py-4">
+      <nav className="space-y-1">
+        {chapters.map((chapter) => {
+          const chapterHref = `/chapters/${chapter.slug}`;
+          const inChapter = pathname?.startsWith(chapterHref);
+          return (
+            <div key={chapter.slug}>
+              <Link
+                href={chapterHref}
+                title={collapsed ? `Chapter ${chapter.number}: ${chapter.title}` : undefined}
+                className={`group flex items-center gap-3 rounded-md-md px-2 py-2 no-underline transition-colors ${
+                  inChapter
+                    ? 'bg-md-secondary-container text-md-on-secondary-container'
+                    : 'text-md-on-surface-variant hover:bg-md-surface-container'
+                }`}
+              >
+                <span
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md-full font-display text-sm font-semibold ${
                     inChapter
-                      ? 'bg-md-secondary-container text-md-on-secondary-container'
-                      : 'text-md-on-surface-variant hover:bg-md-surface-container'
+                      ? 'bg-md-primary text-md-on-primary'
+                      : 'bg-md-surface-container-high text-md-on-surface group-hover:bg-md-surface-container-highest'
                   }`}
                 >
-                  <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
-                    Chapter {chapter.number}
-                  </div>
-                  <div className="mt-0.5 text-sm font-semibold">
-                    {chapter.title}
-                  </div>
-                </Link>
-                <ul className="mt-2 space-y-1 pl-2">
+                  {chapter.number}
+                </span>
+                {!collapsed && (
+                  <span className="min-w-0">
+                    <span className="block text-[10px] uppercase tracking-[0.18em] opacity-80">
+                      Chapter {chapter.number}
+                    </span>
+                    <span className="block truncate text-sm font-semibold">
+                      {chapter.title}
+                    </span>
+                  </span>
+                )}
+              </Link>
+
+              {!collapsed && (
+                <ul className="mb-3 mt-1 space-y-0.5 pl-2">
                   {chapter.lessons.map((lesson, i) => {
                     const href = `/chapters/${chapter.slug}/${lesson.slug}`;
                     const active = pathname === href;
@@ -72,16 +140,116 @@ export function Sidebar() {
                     );
                   })}
                 </ul>
-              </div>
-            );
-          })}
-        </nav>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
-        <div className="mt-8 border-t border-md-outline-variant pt-4 text-xs text-md-on-surface-variant">
-          Built from the{' '}
-          <span className="text-md-on-surface">hello-slam</span> notebooks.
-        </div>
+      <div className="mt-4 border-t border-md-outline-variant pt-3">
+        <SidebarLink href="/about" collapsed={collapsed} active={pathname === '/about'} icon={<InfoIcon />}>
+          About
+        </SidebarLink>
+        <SidebarLink href="/credits" collapsed={collapsed} active={pathname === '/credits'} icon={<HeartIcon />}>
+          Credits
+        </SidebarLink>
+        <SidebarLink
+          href="https://github.com/nstathou/hello-slam"
+          external
+          collapsed={collapsed}
+          active={false}
+          icon={<GitHubIcon />}
+        >
+          Source
+        </SidebarLink>
       </div>
-    </aside>
+
+      {!collapsed && (
+        <div className="mt-4 px-2 text-xs text-md-on-surface-variant">
+          Built from the{' '}
+          <a
+            href="https://github.com/nstathou/hello-slam"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-md-on-surface"
+          >
+            hello-slam
+          </a>{' '}
+          notebooks.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarLink({
+  href,
+  children,
+  icon,
+  collapsed,
+  active,
+  external,
+}: {
+  href: string;
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  collapsed: boolean;
+  active: boolean;
+  external?: boolean;
+}) {
+  const className = `group flex items-center gap-3 rounded-md-md px-2 py-2 no-underline transition-colors ${
+    active
+      ? 'bg-md-secondary-container text-md-on-secondary-container'
+      : 'text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface'
+  }`;
+  const inner = (
+    <>
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md-full bg-md-surface-container-high text-md-on-surface group-hover:bg-md-surface-container-highest">
+        {icon}
+      </span>
+      {!collapsed && <span className="text-sm font-medium">{children}</span>}
+    </>
+  );
+  if (external) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={collapsed ? String(children) : undefined}
+        className={className}
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} title={collapsed ? String(children) : undefined} className={className}>
+      {inner}
+    </Link>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M11 7h2v2h-2V7Zm0 4h2v6h-2v-6Zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" />
+    </svg>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M12 21s-7-4.5-9.3-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.3 6c-2.3 4.5-9.3 9-9.3 9Z" />
+    </svg>
+  );
+}
+
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.1c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.69.08-.69 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.44-2.7 5.4-5.27 5.69.41.35.78 1.05.78 2.12v3.14c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+    </svg>
   );
 }

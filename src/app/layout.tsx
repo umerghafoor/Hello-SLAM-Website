@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Sidebar } from '@/components/Sidebar';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { TopAppBar } from '@/components/TopAppBar';
+import { Footer } from '@/components/Footer';
+import { SidebarProvider } from '@/components/SidebarContext';
 
 export const metadata: Metadata = {
   title: {
@@ -42,20 +44,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
       <body className="min-h-screen font-sans">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 min-w-0">
-            <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-md-outline-variant bg-md-surface/80 px-6 py-3 backdrop-blur-md md:px-10">
-              <div className="text-xs uppercase tracking-[0.18em] text-md-on-surface-variant">
-                Hello SLAM
-              </div>
-              <ThemeToggle />
+        <SidebarProvider>
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md-full focus:bg-md-primary focus:px-4 focus:py-2 focus:text-md-on-primary"
+          >
+            Skip to content
+          </a>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopAppBar />
+              <main id="main" className="flex-1">
+                <div className="mx-auto w-full max-w-3xl px-6 py-10 md:px-10 md:py-14">
+                  {children}
+                </div>
+              </main>
+              <Footer />
             </div>
-            <div className="mx-auto w-full max-w-3xl px-6 py-10 md:px-10 md:py-14">
-              {children}
-            </div>
-          </main>
-        </div>
+          </div>
+        </SidebarProvider>
       </body>
     </html>
   );

@@ -12,12 +12,19 @@ export function LessonHeader({
   blurb?: string;
 }) {
   return (
-    <header className="mb-10 border-b border-[var(--border)] pb-8">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]">
-        Chapter {chapterNumber} · {chapterTitle} · Lesson {chapterNumber}.{lessonIndex + 1}
+    <header className="mb-10 border-b border-md-outline-variant pb-8">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="md-chip">
+          Chapter {chapterNumber} · {chapterTitle}
+        </span>
+        <span className="md-chip" style={{ background: 'var(--md-tertiary-container)', color: 'var(--md-on-tertiary-container)' }}>
+          Lesson {chapterNumber}.{lessonIndex + 1}
+        </span>
       </div>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">{title}</h1>
-      {blurb && <p className="mt-4 text-[var(--text-muted)]">{blurb}</p>}
+      <h1 className="mt-4 font-display text-4xl font-medium tracking-tight text-md-on-surface">
+        {title}
+      </h1>
+      {blurb && <p className="mt-4 text-md-on-surface-variant">{blurb}</p>}
     </header>
   );
 }

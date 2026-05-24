@@ -60,13 +60,13 @@ export default async function LessonPage({
 
 function PlaceholderContent() {
   return (
-    <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elev)] p-8 text-center text-[var(--text-muted)]">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--accent-2)]">
+    <div className="rounded-md-xl border border-dashed border-md-outline-variant bg-md-surface-container-low p-8 text-center text-md-on-surface-variant">
+      <span className="md-chip" style={{ background: 'var(--md-tertiary-container)', color: 'var(--md-on-tertiary-container)' }}>
         Coming soon
-      </div>
+      </span>
       <p className="mt-3">
-        This lesson hasn’t been written yet. The full content will be ported from the
-        source Jupyter notebook.
+        This lesson hasn’t been written yet. The full content will be ported
+        from the source Jupyter notebook.
       </p>
     </div>
   );

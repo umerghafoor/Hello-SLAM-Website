@@ -29,30 +29,30 @@ export default async function ChapterIndex({
 
   return (
     <div className="prose-slam">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]">
-        Chapter {chapter.number}
-      </div>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">
+      <span className="md-chip">Chapter {chapter.number}</span>
+      <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-md-on-surface">
         {chapter.title}
       </h1>
-      <p className="mt-4 text-[var(--text-muted)]">{chapter.summary}</p>
+      <p className="mt-4 text-md-on-surface-variant">{chapter.summary}</p>
 
       <ol className="mt-10 grid gap-3">
         {chapter.lessons.map((lesson, i) => (
           <li key={lesson.slug} className="list-none">
             <Link
               href={`/chapters/${chapter.slug}/${lesson.slug}`}
-              className="group flex items-start gap-4 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] p-5 no-underline transition-colors hover:border-[var(--accent)]"
+              className="group md-card flex items-start gap-4 p-5 no-underline"
             >
-              <div className="text-3xl font-semibold text-[var(--text-faint)] tabular-nums">
+              <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md-full bg-md-primary-container font-display text-base font-semibold text-md-on-primary-container tabular-nums">
                 {chapter.number}.{i + 1}
               </div>
               <div className="min-w-0">
-                <div className="text-lg font-semibold text-white group-hover:text-[var(--accent)]">
+                <div className="font-display text-lg font-medium text-md-on-surface group-hover:text-md-primary">
                   {lesson.title}
                 </div>
                 {lesson.blurb && (
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{lesson.blurb}</p>
+                  <p className="mt-1 text-sm text-md-on-surface-variant">
+                    {lesson.blurb}
+                  </p>
                 )}
               </div>
             </Link>

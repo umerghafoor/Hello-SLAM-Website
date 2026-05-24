@@ -4,115 +4,456 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #0b0d10;
-  --bg-elev: #12161b;
-  --bg-soft: #171c22;
-  --border: #232a32;
-  --text: #e6edf3;
-  --text-muted: #9aa7b4;
-  --text-faint: #6b7785;
-  --accent: #a4d4a3;
-  --accent-2: #ffa500;
-  --link: #7ab8ff;
+/* =========================================================================
+   Material 3 Expressive — design tokens
+   Seed: a vivid Google-style green-blue; tonal palettes follow MD3 tones.
+   ========================================================================= */
+
+:root,
+.light {
+  /* Primary (P) */
+  --md-primary: #006d3b;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #76fbab;
+  --md-on-primary-container: #002111;
+  --md-primary-fixed: #76fbab;
+  --md-primary-fixed-dim: #58de91;
+
+  /* Secondary (S) */
+  --md-secondary: #506352;
+  --md-on-secondary: #ffffff;
+  --md-secondary-container: #d3e8d2;
+  --md-on-secondary-container: #0e1f12;
+
+  /* Tertiary (T) — Google "expressive" pop */
+  --md-tertiary: #3a646f;
+  --md-on-tertiary: #ffffff;
+  --md-tertiary-container: #beeaf7;
+  --md-on-tertiary-container: #001f26;
+
+  /* Error */
+  --md-error: #ba1a1a;
+  --md-on-error: #ffffff;
+  --md-error-container: #ffdad6;
+  --md-on-error-container: #410002;
+
+  /* Neutral surfaces — MD3 Expressive uses a deeper tonal range */
+  --md-background: #f6fbf3;
+  --md-on-background: #181d18;
+
+  --md-surface: #f6fbf3;
+  --md-on-surface: #181d18;
+  --md-surface-dim: #d7dbd3;
+  --md-surface-bright: #f6fbf3;
+
+  --md-surface-container-lowest: #ffffff;
+  --md-surface-container-low: #f0f5ed;
+  --md-surface-container: #eaefe7;
+  --md-surface-container-high: #e4eae1;
+  --md-surface-container-highest: #dee4dc;
+
+  --md-on-surface-variant: #414941;
+  --md-outline: #717971;
+  --md-outline-variant: #c1c9c0;
+
+  --md-inverse-surface: #2d322d;
+  --md-inverse-on-surface: #edf2e9;
+  --md-inverse-primary: #58de91;
+
+  --md-scrim: #000000;
+
+  /* Expressive shape scale */
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-xl: 28px;
+  --md-shape-full: 9999px;
+
+  /* Elevation (subtle, MD3 tonal) */
+  --md-elev-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 1px 3px 1px rgba(0, 0, 0, 0.04);
+  --md-elev-2: 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 2px 6px 2px rgba(0, 0, 0, 0.06);
+  --md-elev-3: 0 4px 8px 3px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Primary (P) */
+  --md-primary: #58de91;
+  --md-on-primary: #00391d;
+  --md-primary-container: #00522c;
+  --md-on-primary-container: #76fbab;
+  --md-primary-fixed: #76fbab;
+  --md-primary-fixed-dim: #58de91;
+
+  /* Secondary (S) */
+  --md-secondary: #b7ccb7;
+  --md-on-secondary: #233425;
+  --md-secondary-container: #394b3a;
+  --md-on-secondary-container: #d3e8d2;
+
+  /* Tertiary (T) */
+  --md-tertiary: #a2cdda;
+  --md-on-tertiary: #013640;
+  --md-tertiary-container: #214c57;
+  --md-on-tertiary-container: #beeaf7;
+
+  /* Error */
+  --md-error: #ffb4ab;
+  --md-on-error: #690005;
+  --md-error-container: #93000a;
+  --md-on-error-container: #ffdad6;
+
+  /* Neutral surfaces */
+  --md-background: #0f140f;
+  --md-on-background: #dee4dc;
+
+  --md-surface: #0f140f;
+  --md-on-surface: #dee4dc;
+  --md-surface-dim: #0f140f;
+  --md-surface-bright: #353a35;
+
+  --md-surface-container-lowest: #0a0f0a;
+  --md-surface-container-low: #181d18;
+  --md-surface-container: #1c211c;
+  --md-surface-container-high: #262b26;
+  --md-surface-container-highest: #313631;
+
+  --md-on-surface-variant: #c1c9c0;
+  --md-outline: #8b938a;
+  --md-outline-variant: #414941;
+
+  --md-inverse-surface: #dee4dc;
+  --md-inverse-on-surface: #2d322d;
+  --md-inverse-primary: #006d3b;
+
+  --md-scrim: #000000;
+
+  --md-elev-1: 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
+  --md-elev-2: 0 1px 2px 0 rgba(0, 0, 0, 0.5), 0 2px 6px 2px rgba(0, 0, 0, 0.4);
+  --md-elev-3: 0 4px 8px 3px rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
 }
 
 html,
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  background: var(--md-background);
+  color: var(--md-on-background);
+  font-family: 'Google Sans Text', 'Roboto Flex', 'Roboto', system-ui,
+    -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+::selection {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+
+/* Scrollbar — subtle, MD3-flavored */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--md-outline-variant) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--md-outline-variant);
+  border-radius: var(--md-shape-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--md-outline);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
 @layer base {
   a {
-    @apply text-[var(--link)] underline-offset-2 hover:underline;
+    @apply underline-offset-2 hover:underline;
+    color: var(--md-primary);
   }
   code:not(pre code) {
-    @apply rounded bg-[var(--bg-soft)] px-1.5 py-0.5 text-[0.9em] text-[#f7c177];
-    border: 1px solid var(--border);
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface);
+    border: 1px solid var(--md-outline-variant);
+    border-radius: var(--md-shape-sm);
+    padding: 2px 6px;
+    font-size: 0.88em;
+    font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
 
-/* --- Prose styling for MDX content --- */
+/* =========================================================================
+   MD3 Expressive utility classes
+   ========================================================================= */
+
+@layer components {
+  /* Surfaces */
+  .md-surface {
+    background: var(--md-surface);
+    color: var(--md-on-surface);
+  }
+  .md-surface-container-low {
+    background: var(--md-surface-container-low);
+    color: var(--md-on-surface);
+  }
+  .md-surface-container {
+    background: var(--md-surface-container);
+    color: var(--md-on-surface);
+  }
+  .md-surface-container-high {
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface);
+  }
+  .md-surface-container-highest {
+    background: var(--md-surface-container-highest);
+    color: var(--md-on-surface);
+  }
+
+  /* Buttons — Expressive shapes (pill) */
+  .md-btn-filled {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--md-shape-full);
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    font-weight: 500;
+    font-size: 0.875rem;
+    letter-spacing: 0.01em;
+    transition: box-shadow 200ms ease, transform 200ms ease,
+      background-color 200ms ease;
+    text-decoration: none;
+  }
+  .md-btn-filled:hover {
+    box-shadow: var(--md-elev-2);
+    text-decoration: none;
+  }
+  .md-btn-filled:active {
+    transform: scale(0.98);
+  }
+
+  .md-btn-tonal {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--md-shape-full);
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: box-shadow 200ms ease, transform 200ms ease;
+    text-decoration: none;
+  }
+  .md-btn-tonal:hover {
+    box-shadow: var(--md-elev-1);
+    text-decoration: none;
+  }
+
+  .md-btn-outlined {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--md-shape-full);
+    border: 1px solid var(--md-outline);
+    color: var(--md-primary);
+    font-weight: 500;
+    font-size: 0.875rem;
+    background: transparent;
+    transition: background-color 200ms ease;
+    text-decoration: none;
+  }
+  .md-btn-outlined:hover {
+    background: color-mix(in srgb, var(--md-primary) 8%, transparent);
+    text-decoration: none;
+  }
+
+  .md-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--md-shape-full);
+    color: var(--md-on-surface-variant);
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+  .md-icon-btn:hover {
+    background: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+    color: var(--md-on-surface);
+  }
+
+  /* Cards — Expressive uses larger, asymmetric-friendly shapes */
+  .md-card {
+    background: var(--md-surface-container-low);
+    color: var(--md-on-surface);
+    border-radius: var(--md-shape-xl);
+    border: 1px solid var(--md-outline-variant);
+    transition: background-color 200ms ease, box-shadow 200ms ease,
+      border-color 200ms ease, transform 200ms ease;
+  }
+  .md-card:hover {
+    background: var(--md-surface-container);
+    border-color: color-mix(in srgb, var(--md-primary) 40%, var(--md-outline-variant));
+    box-shadow: var(--md-elev-1);
+  }
+
+  .md-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--md-shape-sm);
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* =========================================================================
+   Prose — MDX content
+   ========================================================================= */
+
 .prose-slam {
-  @apply text-[15.5px] leading-7;
-  color: var(--text);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--md-on-surface);
 }
 
 .prose-slam h1 {
-  @apply mt-2 mb-6 text-3xl font-semibold tracking-tight;
-  color: #fff;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--md-on-surface);
+  font-family: 'Google Sans Display', 'Google Sans', 'Roboto Flex', system-ui, sans-serif;
 }
 .prose-slam h2 {
-  @apply mt-10 mb-3 text-2xl font-semibold tracking-tight;
-  color: var(--accent);
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--md-primary);
+  font-family: 'Google Sans Display', 'Google Sans', 'Roboto Flex', system-ui, sans-serif;
 }
 .prose-slam h3 {
-  @apply mt-8 mb-2 text-xl font-semibold;
-  color: var(--accent);
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.375rem;
+  font-weight: 500;
+  color: var(--md-tertiary);
+  font-family: 'Google Sans Display', 'Google Sans', 'Roboto Flex', system-ui, sans-serif;
 }
 .prose-slam h4 {
-  @apply mt-6 mb-2 text-lg font-semibold;
-  color: var(--accent);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--md-secondary);
 }
 .prose-slam p {
-  @apply my-4;
+  margin: 1rem 0;
 }
 .prose-slam ul {
-  @apply my-4 list-disc pl-6;
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
 }
 .prose-slam ol {
-  @apply my-4 list-decimal pl-6;
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  list-style: decimal;
 }
 .prose-slam li {
-  @apply my-1;
+  margin: 0.25rem 0;
+}
+.prose-slam li::marker {
+  color: var(--md-primary);
 }
 .prose-slam li > p {
-  @apply my-1;
+  margin: 0.25rem 0;
 }
 .prose-slam strong {
-  color: var(--accent-2);
+  color: var(--md-tertiary);
   font-weight: 600;
 }
 .prose-slam blockquote {
-  @apply my-6 border-l-2 pl-4 italic;
-  border-color: var(--accent);
-  color: var(--text-muted);
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border-radius: var(--md-shape-md);
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  border-left: 4px solid var(--md-primary);
+  font-style: normal;
 }
 .prose-slam hr {
-  @apply my-10 border-0 border-t;
-  border-color: var(--border);
+  margin: 2.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--md-outline-variant);
 }
 .prose-slam table {
-  @apply my-6 w-full border-collapse text-sm;
+  margin: 1.5rem 0;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-md);
+  overflow: hidden;
 }
 .prose-slam th,
 .prose-slam td {
-  @apply border px-3 py-2 text-left;
-  border-color: var(--border);
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--md-outline-variant);
+}
+.prose-slam tr:last-child td {
+  border-bottom: 0;
 }
 .prose-slam th {
-  background: var(--bg-soft);
+  background: var(--md-surface-container-high);
+  font-weight: 600;
+  color: var(--md-on-surface);
 }
 
-/* code blocks (rehype-pretty-code) */
+/* Code blocks (rehype-pretty-code) */
 .prose-slam figure[data-rehype-pretty-code-figure] {
-  @apply my-6 overflow-hidden rounded-lg;
-  border: 1px solid var(--border);
-  background: #0d1117;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  border-radius: var(--md-shape-lg);
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-container);
 }
 .prose-slam figure[data-rehype-pretty-code-figure] pre {
-  @apply overflow-x-auto p-4 text-[13.5px] leading-6;
+  overflow-x: auto;
+  padding: 1rem;
+  font-size: 13.5px;
+  line-height: 1.55;
+  background: var(--md-surface-container) !important;
 }
 .prose-slam figure[data-rehype-pretty-code-figure] code {
-  @apply grid;
+  display: grid;
   background: transparent !important;
   border: 0;
   padding: 0;
   color: inherit;
   counter-reset: line;
+  font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .prose-slam code[data-line-numbers] > [data-line]::before {
   counter-increment: line;
@@ -121,18 +462,32 @@ body {
   width: 1.75rem;
   margin-right: 1rem;
   text-align: right;
-  color: var(--text-faint);
+  color: var(--md-outline);
 }
 .prose-slam [data-rehype-pretty-code-title] {
-  @apply border-b px-4 py-2 text-xs text-[var(--text-muted)];
-  border-color: var(--border);
-  background: var(--bg-soft);
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--md-on-surface-variant);
+  border-bottom: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-container-high);
 }
 
-/* KaTeX tweaks for dark bg */
+/* Shiki: respect theme */
+.dark .prose-slam [data-theme='light'],
+.dark .prose-slam .shiki[data-theme='light'] {
+  display: none;
+}
+:root:not(.dark) .prose-slam [data-theme='dark'],
+:root:not(.dark) .prose-slam .shiki[data-theme='dark'] {
+  display: none;
+}
+
+/* KaTeX */
 .katex-display {
-  @apply my-6 overflow-x-auto overflow-y-hidden;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .katex {
-  color: var(--text);
+  color: var(--md-on-surface);
 }

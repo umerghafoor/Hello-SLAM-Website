@@ -10,20 +10,17 @@ export function LessonNav({
 }) {
   const { prev, next } = neighbors(chapterSlug, lessonSlug);
   return (
-    <nav className="mt-16 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-8">
+    <nav className="mt-16 grid grid-cols-1 gap-3 border-t border-md-outline-variant pt-8 sm:grid-cols-2">
       <div>
         {prev && (
-          <Link
-            href={prev.href}
-            className="group block rounded-lg border border-[var(--border)] p-4 no-underline transition-colors hover:border-[var(--accent)]"
-          >
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+          <Link href={prev.href} className="group md-card block p-4 no-underline">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-md-on-surface-variant">
               ← Previous
             </div>
-            <div className="mt-1 text-sm text-white group-hover:text-[var(--accent)]">
+            <div className="mt-1 font-display text-base font-medium text-md-on-surface group-hover:text-md-primary">
               {prev.title}
             </div>
-            <div className="text-xs text-[var(--text-muted)]">
+            <div className="text-xs text-md-on-surface-variant">
               Chapter {prev.chapter.number} · {prev.chapter.title}
             </div>
           </Link>
@@ -33,15 +30,15 @@ export function LessonNav({
         {next && (
           <Link
             href={next.href}
-            className="group block rounded-lg border border-[var(--border)] p-4 text-right no-underline transition-colors hover:border-[var(--accent)]"
+            className="group md-card block p-4 text-right no-underline"
           >
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-md-on-surface-variant">
               Next →
             </div>
-            <div className="mt-1 text-sm text-white group-hover:text-[var(--accent)]">
+            <div className="mt-1 font-display text-base font-medium text-md-on-surface group-hover:text-md-primary">
               {next.title}
             </div>
-            <div className="text-xs text-[var(--text-muted)]">
+            <div className="text-xs text-md-on-surface-variant">
               Chapter {next.chapter.number} · {next.chapter.title}
             </div>
           </Link>

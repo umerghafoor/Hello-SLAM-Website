@@ -4,7 +4,7 @@ import { chapters, getChapter, getLesson } from '@/lib/chapters';
 import { LessonHeader } from '@/components/LessonHeader';
 import { LessonNav } from '@/components/LessonNav';
 
-const SITE_URL = 'https://hello-slam.vercel.app';
+const SITE_URL = 'https://hello-slam.optikflows.com';
 
 export function generateStaticParams() {
   return chapters.flatMap((c) =>

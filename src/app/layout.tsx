@@ -6,7 +6,7 @@ import { Footer } from '@/components/Footer';
 import { SidebarProvider } from '@/components/SidebarContext';
 import { ProgressProvider } from '@/components/ProgressContext';
 
-const SITE_URL = 'https://hello-slam.vercel.app';
+const SITE_URL = 'https://hello-slam.optikflows.com';
 const SITE_NAME = 'Hello SLAM';
 const SITE_DESCRIPTION =
   'A free, hands-on course on Simultaneous Localization and Mapping (SLAM). Learn Kalman filters, particle filters, EKF-SLAM, FastSLAM, and graph-based SLAM with interactive visualisations.';

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { chapters, flatLessons } from '@/lib/chapters';
 
-const SITE_URL = 'https://hello-slam.vercel.app';
+const SITE_URL = 'https://hello-slam.optikflows.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

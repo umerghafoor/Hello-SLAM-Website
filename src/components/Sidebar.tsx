@@ -165,6 +165,9 @@ function SidebarInner({
       </nav>
 
       <div className="mt-4 border-t border-md-outline-variant pt-3">
+        <SidebarLink href="/roadmap" collapsed={collapsed} active={pathname === '/roadmap'} icon={<RoadmapIcon />}>
+          Roadmap
+        </SidebarLink>
         <SidebarLink href="/about" collapsed={collapsed} active={pathname === '/about'} icon={<InfoIcon />}>
           About
         </SidebarLink>
@@ -245,6 +248,14 @@ function SidebarLink({
     <Link href={href} title={collapsed ? String(children) : undefined} className={className}>
       {inner}
     </Link>
+  );
+}
+
+function RoadmapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M20 3H4v2l4 4-4 4v2l8-2 8 2v-2l-4-4 4-4V3Zm-2 9.24-6-1.5-6 1.5V13l6-1.5 6 1.5v-.76ZM4 19h16v2H4v-2Z" />
+    </svg>
   );
 }
 

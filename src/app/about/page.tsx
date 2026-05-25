@@ -5,7 +5,14 @@ import { chapters, flatLessons } from '@/lib/chapters';
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'About Hello SLAM — a web companion to the hello-slam notebooks by Nikolaos Stathoulopoulos.',
+    'Hello SLAM is a free interactive web course on Simultaneous Localization and Mapping, built from the hello-slam notebooks by Nikolaos Stathoulopoulos. Learn SLAM in the browser with visualisations and interactive demos.',
+  alternates: { canonical: '/about' },
+  openGraph: {
+    title: 'About Hello SLAM',
+    description:
+      'A free interactive course on SLAM — Kalman filters, particle filters, and graph-based SLAM — built from the hello-slam notebooks by Nikolaos Stathoulopoulos.',
+    url: '/about',
+  },
 };
 
 export default function AboutPage() {

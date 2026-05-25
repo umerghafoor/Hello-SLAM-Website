@@ -4,7 +4,14 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Credits',
   description:
-    'Credits and attribution for the Hello SLAM web port — original course by Nikolaos Stathoulopoulos.',
+    'Credits and attribution for Hello SLAM. Original course content by Nikolaos Stathoulopoulos. Web port built with Next.js, MDX, Tailwind CSS, KaTeX, and a Material 3 Expressive design system.',
+  alternates: { canonical: '/credits' },
+  openGraph: {
+    title: 'Credits · Hello SLAM',
+    description:
+      'Credits for Hello SLAM — original notebooks by Nikolaos Stathoulopoulos, web port built with Next.js and MDX.',
+    url: '/credits',
+  },
 };
 
 export default function CreditsPage() {

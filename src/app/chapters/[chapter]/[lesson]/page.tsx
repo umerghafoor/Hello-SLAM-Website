@@ -4,6 +4,8 @@ import { chapters, getChapter, getLesson } from '@/lib/chapters';
 import { LessonHeader } from '@/components/LessonHeader';
 import { LessonNav } from '@/components/LessonNav';
 
+const SITE_URL = 'https://hello-slam.vercel.app';
+
 export function generateStaticParams() {
   return chapters.flatMap((c) =>
     c.lessons.map((l) => ({ chapter: c.slug, lesson: l.slug }))
@@ -15,10 +17,26 @@ export async function generateMetadata({
 }: {
   params: Promise<{ chapter: string; lesson: string }>;
 }): Promise<Metadata> {
-  const { chapter, lesson } = await params;
-  const l = getLesson(chapter, lesson);
-  if (!l) return {};
-  return { title: l.title };
+  const { chapter: chapterSlug, lesson: lessonSlug } = await params;
+  const chapter = getChapter(chapterSlug);
+  const lesson = getLesson(chapterSlug, lessonSlug);
+  if (!chapter || !lesson) return {};
+  const title = lesson.title;
+  const description =
+    lesson.blurb ??
+    `${lesson.title} — part of Chapter ${chapter.number}: ${chapter.title} in the Hello SLAM course on Simultaneous Localization and Mapping.`;
+  const url = `/chapters/${chapterSlug}/${lessonSlug}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: 'article',
+    },
+  };
 }
 
 export default async function LessonPage({
@@ -41,8 +59,38 @@ export default async function LessonPage({
     Content = PlaceholderContent;
   }
 
+  const lessonUrl = `${SITE_URL}/chapters/${chapterSlug}/${lessonSlug}`;
+  const description =
+    lesson.blurb ??
+    `${lesson.title} — part of Chapter ${chapter.number}: ${chapter.title} in the Hello SLAM course.`;
+
   return (
     <article>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'LearningResource',
+            name: lesson.title,
+            description,
+            url: lessonUrl,
+            isPartOf: {
+              '@type': 'Course',
+              name: 'Hello SLAM',
+              url: SITE_URL,
+            },
+            educationalLevel: 'advanced',
+            inLanguage: 'en',
+            isAccessibleForFree: true,
+            provider: {
+              '@type': 'Person',
+              name: 'Nikolaos Stathoulopoulos',
+              url: 'https://github.com/nstathou',
+            },
+          }),
+        }}
+      />
       <LessonHeader
         chapterNumber={chapter.number}
         chapterTitle={chapter.title}

@@ -1,6 +1,20 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { chapters, flatLessons } from '@/lib/chapters';
 import { OverallProgress } from '@/components/OverallProgress';
+
+export const metadata: Metadata = {
+  title: 'Hello SLAM — Free Interactive Course on Robot Localization & Mapping',
+  description:
+    'Learn Simultaneous Localization and Mapping from scratch. Covers Bayes filters, Kalman filters, EKF-SLAM, particle filters, FastSLAM, and graph-based SLAM with interactive visualisations.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'Hello SLAM — Free Interactive Course on Robot Localization & Mapping',
+    description:
+      'Learn SLAM from scratch: Bayes filters, Kalman filters, EKF-SLAM, particle filters, FastSLAM, and graph-based SLAM. Free, interactive, browser-based.',
+    url: '/',
+  },
+};
 
 export default function HomePage() {
   const first = flatLessons[0];

@@ -15,7 +15,15 @@ export async function generateMetadata({
   const { chapter: slug } = await params;
   const chapter = getChapter(slug);
   if (!chapter) return {};
-  return { title: `Chapter ${chapter.number} · ${chapter.title}` };
+  const title = `Chapter ${chapter.number}: ${chapter.title}`;
+  const description = `${chapter.summary} Covers ${chapter.lessons.map((l) => l.title).join(', ')}.`;
+  const url = `/chapters/${slug}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url },
+  };
 }
 
 export default async function ChapterIndex({

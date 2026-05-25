@@ -6,13 +6,74 @@ import { Footer } from '@/components/Footer';
 import { SidebarProvider } from '@/components/SidebarContext';
 import { ProgressProvider } from '@/components/ProgressContext';
 
+const SITE_URL = 'https://hello-slam.vercel.app';
+const SITE_NAME = 'Hello SLAM';
+const SITE_DESCRIPTION =
+  'A free, hands-on course on Simultaneous Localization and Mapping (SLAM). Learn Kalman filters, particle filters, EKF-SLAM, FastSLAM, and graph-based SLAM with interactive visualisations.';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Hello SLAM',
-    template: '%s · Hello SLAM',
+    default: SITE_NAME,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    'A hands-on course on Simultaneous Localization and Mapping — Kalman filters, particle filters, and graph-based SLAM.',
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'SLAM',
+    'Simultaneous Localization and Mapping',
+    'Kalman filter',
+    'Extended Kalman Filter',
+    'particle filter',
+    'Monte Carlo Localization',
+    'FastSLAM',
+    'graph-based SLAM',
+    'robotics',
+    'probabilistic robotics',
+    'Bayes filter',
+    'occupancy grid',
+    'EKF-SLAM',
+    'robot localization',
+    'mapping algorithms',
+  ],
+  authors: [{ name: 'Nikolaos Stathoulopoulos', url: 'https://github.com/nstathou' }],
+  creator: 'Nikolaos Stathoulopoulos',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Hello SLAM — a free interactive course on robot localization and mapping',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: SITE_URL,
+  },
+  category: 'education',
 };
 
 // Prevent theme flash by setting the class before paint.
@@ -41,6 +102,43 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link
           href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Google+Sans+Display:wght@400;500;600;700&family=Google+Sans+Text:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap"
           rel="stylesheet"
+        />
+        {/* Favicon chain */}
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+        {/* Structured data — Course */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Course',
+              name: 'Hello SLAM',
+              description: SITE_DESCRIPTION,
+              url: SITE_URL,
+              provider: {
+                '@type': 'Person',
+                name: 'Nikolaos Stathoulopoulos',
+                url: 'https://github.com/nstathou',
+              },
+              educationalLevel: 'advanced',
+              teaches: [
+                'Simultaneous Localization and Mapping',
+                'Kalman Filters',
+                'Particle Filters',
+                'Graph-based SLAM',
+                'Probabilistic Robotics',
+              ],
+              inLanguage: 'en',
+              isAccessibleForFree: true,
+              hasCourseInstance: {
+                '@type': 'CourseInstance',
+                courseMode: 'online',
+              },
+            }),
+          }}
         />
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>

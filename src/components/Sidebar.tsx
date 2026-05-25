@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { chapters } from '@/lib/chapters';
 import { useSidebar } from './SidebarContext';
+import { useProgressContext } from './ProgressContext';
 
 export function Sidebar() {
   const { collapsed, mobileOpen, closeMobile } = useSidebar();
@@ -72,12 +73,17 @@ function SidebarInner({
   collapsed: boolean;
   pathname: string | null;
 }) {
+  const { isComplete } = useProgressContext();
   return (
     <div className="sticky top-0 max-h-screen overflow-y-auto px-3 py-4">
       <nav className="space-y-1">
         {chapters.map((chapter) => {
           const chapterHref = `/chapters/${chapter.slug}`;
           const inChapter = pathname?.startsWith(chapterHref);
+          const completedCount = chapter.lessons.filter((l) =>
+            isComplete(chapter.slug, l.slug)
+          ).length;
+          const allDone = completedCount === chapter.lessons.length;
           return (
             <div key={chapter.slug}>
               <Link
@@ -90,21 +96,28 @@ function SidebarInner({
                 }`}
               >
                 <span
-                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md-full font-display text-sm font-semibold ${
-                    inChapter
+                  className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md-full font-display text-sm font-semibold ${
+                    allDone
+                      ? 'bg-md-primary text-md-on-primary'
+                      : inChapter
                       ? 'bg-md-primary text-md-on-primary'
                       : 'bg-md-surface-container-high text-md-on-surface group-hover:bg-md-surface-container-highest'
                   }`}
                 >
-                  {chapter.number}
+                  {allDone ? <CheckIcon /> : chapter.number}
                 </span>
                 {!collapsed && (
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="block text-[10px] uppercase tracking-[0.18em] opacity-80">
                       Chapter {chapter.number}
                     </span>
-                    <span className="block truncate text-sm font-semibold">
+                    <span className="flex items-center gap-2 truncate text-sm font-semibold">
                       {chapter.title}
+                      {completedCount > 0 && !allDone && (
+                        <span className="shrink-0 text-[10px] font-normal opacity-60">
+                          {completedCount}/{chapter.lessons.length}
+                        </span>
+                      )}
                     </span>
                   </span>
                 )}
@@ -115,6 +128,7 @@ function SidebarInner({
                   {chapter.lessons.map((lesson, i) => {
                     const href = `/chapters/${chapter.slug}/${lesson.slug}`;
                     const active = pathname === href;
+                    const done = isComplete(chapter.slug, lesson.slug);
                     return (
                       <li key={lesson.slug}>
                         <Link
@@ -127,14 +141,18 @@ function SidebarInner({
                         >
                           <span
                             className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md-full text-[10px] font-medium ${
-                              active
+                              done
+                                ? 'bg-md-primary text-md-on-primary'
+                                : active
                                 ? 'bg-md-primary text-md-on-primary'
                                 : 'bg-md-surface-container-high text-md-on-surface-variant group-hover:bg-md-surface-container-highest'
                             }`}
                           >
-                            {i + 1}
+                            {done ? <CheckIcon size="xs" /> : i + 1}
                           </span>
-                          <span className="truncate">{lesson.title}</span>
+                          <span className={`truncate ${done ? 'line-through opacity-60' : ''}`}>
+                            {lesson.title}
+                          </span>
                         </Link>
                       </li>
                     );
@@ -227,6 +245,15 @@ function SidebarLink({
     <Link href={href} title={collapsed ? String(children) : undefined} className={className}>
       {inner}
     </Link>
+  );
+}
+
+function CheckIcon({ size = 'sm' }: { size?: 'xs' | 'sm' }) {
+  const cls = size === 'xs' ? 'h-3 w-3' : 'h-4 w-4';
+  return (
+    <svg viewBox="0 0 24 24" className={cls} fill="currentColor" aria-hidden="true">
+      <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z" />
+    </svg>
   );
 }
 

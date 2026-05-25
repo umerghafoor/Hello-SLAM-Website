@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { neighbors } from '@/lib/chapters';
+import { MarkCompleteButton } from './MarkCompleteButton';
 
 export function LessonNav({
   chapterSlug,
@@ -10,7 +11,11 @@ export function LessonNav({
 }) {
   const { prev, next } = neighbors(chapterSlug, lessonSlug);
   return (
-    <nav className="mt-16 grid grid-cols-1 gap-3 border-t border-md-outline-variant pt-8 sm:grid-cols-2">
+    <div className="mt-16 border-t border-md-outline-variant pt-8">
+      <div className="mb-6 flex justify-center">
+        <MarkCompleteButton chapterSlug={chapterSlug} lessonSlug={lessonSlug} />
+      </div>
+      <nav className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div>
         {prev && (
           <Link href={prev.href} className="group md-card block p-4 no-underline">
@@ -45,5 +50,6 @@ export function LessonNav({
         )}
       </div>
     </nav>
+    </div>
   );
 }

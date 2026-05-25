@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { chapters, flatLessons } from '@/lib/chapters';
+import { OverallProgress } from '@/components/OverallProgress';
 
 export default function HomePage() {
   const first = flatLessons[0];
@@ -41,6 +42,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <OverallProgress />
 
       <h2 className="mt-16 font-display text-3xl font-medium text-md-primary">
         Chapters

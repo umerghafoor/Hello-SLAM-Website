@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { TopAppBar } from '@/components/TopAppBar';
 import { Footer } from '@/components/Footer';
 import { SidebarProvider } from '@/components/SidebarContext';
+import { ProgressProvider } from '@/components/ProgressContext';
 
 export const metadata: Metadata = {
   title: {
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
       <body className="min-h-screen font-sans">
+        <ProgressProvider>
         <SidebarProvider>
           <a
             href="#main"
@@ -64,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </SidebarProvider>
+        </ProgressProvider>
       </body>
     </html>
   );
